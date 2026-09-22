@@ -1,7 +1,4 @@
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+import './loadEnv';
 
 import express, { Request, Response } from 'express';
 import cors from 'cors';

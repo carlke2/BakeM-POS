@@ -30,12 +30,21 @@ export function getSupabaseConfigError(): string | null {
   return null;
 }
 
-// Service role client - full access, server-side only
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+let client: SupabaseClient | null = null;
 
-export default supabase;
+/** Storage client. Only created when SUPABASE_URL and the service role key are set. */
+export function getSupabase(): SupabaseClient {
+  const configError = getSupabaseConfigError();
+  if (configError || !isSupabaseConfigured()) {
+    throw new Error(configError || 'Supabase storage is not configured');
+  }
+  if (!client) {
+    client = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return client;
+}

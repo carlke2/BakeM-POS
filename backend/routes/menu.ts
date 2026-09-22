@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '@/services/prisma';
-import supabase, { getSupabaseConfigError, isSupabaseConfigured } from '@/services/supabase';
+import { getSupabase, getSupabaseConfigError, isSupabaseConfigured } from '@/services/supabase';
 import { ensureAuthenticated } from '@/middlewares/auth';
 import { logAuditEvent } from '@/services/audit';
 import { recordProduction } from '@/services/production';
@@ -269,6 +269,7 @@ router.post(
         });
       }
 
+      const supabase = getSupabase();
       const ext = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
       const filename = `${uuidv4()}.${ext}`;
 
