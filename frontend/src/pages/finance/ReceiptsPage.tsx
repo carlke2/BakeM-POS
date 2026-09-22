@@ -8,7 +8,7 @@ import {
   printOrderReceipt,
   receiptFromPosTransaction,
 } from "@/lib/orderReceipt";
-import logo from "@/assets/LOGO.png";
+import logo from "@/assets/icon.png";
 import { toast } from "@/services/toast";
 
 interface ReceiptItem {

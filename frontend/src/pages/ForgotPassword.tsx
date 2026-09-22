@@ -108,7 +108,7 @@ const ForgotPassword = () => {
     <div className="min-h-screen bg-[#E8F6EC] p-4 font-sans flex items-center justify-center">
       <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100">
         <div className="flex flex-col items-center mb-6 text-center">
-          <img src={logo} alt="Slow Rise Co" className="w-20 h-auto mb-3" draggable={false} />
+          <img src={logo} alt="Slow Rise Co" className="w-56 h-auto mb-3" draggable={false} />
           <h1 className="text-xl font-bold text-[#39B54A] flex items-center gap-2">
             <KeyRound size={20} /> Forgot Password
           </h1>

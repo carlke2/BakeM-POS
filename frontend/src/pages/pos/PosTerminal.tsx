@@ -30,7 +30,7 @@ import {
   type OrderReceiptData,
 } from "@/lib/orderReceipt";
 import OrderReceiptCard from "@/components/OrderReceiptCard";
-import logo from "@/assets/LOGO.png";
+import logo from "@/assets/icon.png";
 import { initiateStkPushAndWait } from "@/services/kopokopoPayment";
 import { useAuth } from "@/context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";

@@ -5,7 +5,7 @@ import {
   type OrderReceiptData,
 } from "@/lib/orderReceipt";
 import { toast } from "@/services/toast";
-import logo from "@/assets/LOGO.png";
+import mark from "@/assets/icon.png";
 
 type Props = {
   data: OrderReceiptData;
@@ -17,7 +17,7 @@ const formatMoney = (amount: number) => `KES ${amount.toLocaleString()}`;
 const OrderReceiptCard = ({ data, compact = false }: Props) => {
   const handlePrint = async () => {
     try {
-      await printOrderReceipt(data, logo);
+      await printOrderReceipt(data, mark);
     } catch (e: any) {
       toast.error("Print failed", e.message || "Could not open print window");
     }
@@ -25,7 +25,7 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
 
   const handleDownload = async () => {
     try {
-      await downloadOrderReceipt(data, logo);
+      await downloadOrderReceipt(data, mark);
       toast.success("Receipt downloaded", "Saved as PDF");
     } catch (e: any) {
       toast.error("Download failed", e.message || "Could not download receipt");
@@ -37,7 +37,7 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
       <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-5 text-left font-mono text-sm">
         <div className="text-center border-b border-gray-100 pb-4 mb-4">
           <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-            <img src={logo} alt="Slow Rise Co" className="h-24 w-24 object-contain" />
+            <img src={mark} alt="Slow Rise Co" className="h-16 w-16 object-contain" />
           </div>
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-sans">Bakery Receipt</p>
           <p className="text-base font-black text-[#39B54A] mt-2 tracking-wide">{data.receiptNo}</p>

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import API from "@/services/api";
 import { toast } from "@/services/toast";
-import logo from "@/assets/LOGO.png";
+import logo from "@/assets/icon.png";
 import { useAuth } from "@/context/AuthContext";
 
 type StaffOption = {
@@ -119,7 +119,7 @@ const StaffAttendanceTerminal = () => {
     <div className="min-h-screen bg-[#39B54A] text-white font-sans">
       <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-6">
         <div className="text-center space-y-3 pt-4">
-          <img src={logo} alt="Slow Rise Co" className="h-14 w-14 rounded-full mx-auto bg-white p-1" />
+          <img src={logo} alt="Slow Rise Co" className="h-16 w-16 rounded-2xl mx-auto" />
           <h1 className="text-2xl font-black tracking-wide">Staff Attendance</h1>
           <p className="text-white/80 text-sm">
             {selected
