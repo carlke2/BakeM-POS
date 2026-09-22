@@ -10,15 +10,33 @@ import {
 import { executeGuestMpesaSale } from '@/routes/pos';
 import { displayReceiptNo } from '@/services/receipt';
 import type { AuthPayload } from '@/middlewares/auth';
-import { ensureAuthenticated } from '@/middlewares/auth';
-import { logAuditEvent } from '@/services/audit';
+import { ensureAuthenticated, canManageOps, ensureOwner } from '@/middlewares/auth';
 import 'dotenv/config';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'smartpos-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'slowrise-secret-key';
 
-type KopoPurpose = 'wallet_topup' | 'pos_sale' | 'general';
 type PosCartLine = { menuItemId: string; quantity: number };
+
+/** posCart stored as { cashierId, items } — also accept legacy bare items array. */
+type PosCartPayload = {
+  cashierId: string;
+  items: PosCartLine[];
+};
+
+function parsePosCart(raw: unknown): PosCartPayload | null {
+  if (!raw) return null;
+  if (Array.isArray(raw) && raw.length > 0) {
+    return { cashierId: 'pos', items: raw as PosCartLine[] };
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    const obj = raw as { cashierId?: string; items?: PosCartLine[] };
+    if (Array.isArray(obj.items) && obj.items.length > 0) {
+      return { cashierId: obj.cashierId || 'pos', items: obj.items };
+    }
+  }
+  return null;
+}
 
 function getOptionalUser(req: Request): AuthPayload | null {
   const authHeader = req.headers.authorization;
@@ -45,7 +63,6 @@ function isSuccessStatus(status: string): boolean {
   return mapStatus(status) === 'success';
 }
 
-/** True only when Kopokopo indicates paid AND we have an M-Pesa receipt (PIN completed). */
 function isConfirmedPaid(parsed: Pick<ParsedKopoPayload, 'rawStatus' | 'status' | 'transactionReference'>): boolean {
   if (!isSuccessStatus(parsed.rawStatus) && parsed.status !== 'success') return false;
   return Boolean(String(parsed.transactionReference || '').trim());
@@ -79,8 +96,6 @@ interface ParsedKopoPayload {
   location: string;
   originationTime: string;
   tillNumber: string;
-  studentId?: string;
-  studentRegNo?: string;
   paymentId?: string;
   purpose?: string;
   payerType?: string;
@@ -89,7 +104,6 @@ interface ParsedKopoPayload {
 function parseKopoPayload(payload: any): ParsedKopoPayload {
   const data = payload?.data ?? payload;
   const attrs = data?.attributes ?? {};
-  // K2 STK callbacks use data.attributes.event.resource; till webhooks use event.resource at top level
   const resource =
     attrs?.event?.resource ??
     payload?.event?.resource ??
@@ -98,18 +112,13 @@ function parseKopoPayload(payload: any): ParsedKopoPayload {
   const links = attrs?._links ?? data?._links ?? payload?._links ?? {};
   const metadata = attrs?.metadata ?? payload?.metadata ?? {};
 
-  // Prefer Incoming Payment attributes.status (Pending|Success|Failed).
-  // resource.status ("Received") is the buygoods result after M-Pesa PIN — not before.
-  // Never default to "Received" (that caused premature "Payment Successful" before PIN).
   const rawStatus = String(
     attrs.status || resource.status || payload?.event?.resource?.status || 'Pending',
   );
   const amountRaw = resource.amount ?? attrs.amount?.value ?? attrs.amount ?? 0;
-  // Only trust M-Pesa receipt on the transaction resource (not merchant metadata attrs.reference)
   const trustedMpesaRef = String(resource.reference ?? attrs.mpesa_receipt_number ?? '').trim();
 
   let mapped = mapStatus(rawStatus);
-  // Gate success on a real M-Pesa receipt so STK "Success/Received" without PIN cannot complete.
   if (mapped === 'success' && !trustedMpesaRef) {
     mapped = 'pending';
   }
@@ -138,8 +147,6 @@ function parseKopoPayload(payload: any): ParsedKopoPayload {
     tillNumber: String(
       resource.till_number ?? attrs.till_number ?? process.env.KOPOKOPO_TILL_NUMBER ?? '',
     ),
-    studentId: String(metadata.student_id ?? metadata.studentId ?? metadata.customer_id ?? '').trim() || undefined,
-    studentRegNo: String(metadata.student_reg_no ?? metadata.studentRegNo ?? metadata.adm_no ?? metadata.reg_no ?? '').trim() || undefined,
     paymentId: String(metadata.payment_id ?? metadata.paymentId ?? '').trim() || undefined,
     purpose: String(metadata.purpose ?? '').trim() || undefined,
     payerType: String(metadata.payer_type ?? metadata.payerType ?? '').trim() || undefined,
@@ -174,8 +181,6 @@ async function findKopoPayment(parsed: ParsedKopoPayload, hintLocation?: string)
     if (byLocation) return byLocation;
   }
 
-  // Till webhooks often send a new Kopokopo event id on each delivery/retry.
-  // Deduplicate by M-Pesa receipt (transactionReference), which is stable.
   const mpesaRef = String(parsed.transactionReference || '').trim();
   if (mpesaRef) {
     const byMpesa = await prisma.kopoPayment.findFirst({
@@ -193,154 +198,6 @@ async function findKopoPayment(parsed: ParsedKopoPayload, hintLocation?: string)
   return null;
 }
 
-function normalizeMpesaRef(value: string | null | undefined): string {
-  return String(value || '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, '');
-}
-
-/**
- * Credit a student wallet exactly once for a KopoPayment.
- * Idempotent by payment id AND by M-Pesa transaction reference so duplicate
- * payment rows / webhook retries cannot double-credit.
- */
-async function creditStudentWallet(
-  paymentId: string,
-  studentId: string,
-  amount: number,
-  phone: string,
-  reference: string,
-) {
-  if (!studentId || amount <= 0) {
-    console.warn('[Kopokopo] Skip wallet credit — missing studentId or invalid amount', {
-      paymentId,
-      studentId,
-      amount,
-    });
-    return false;
-  }
-
-  const mpesaRef = normalizeMpesaRef(reference);
-
-  try {
-    return await prisma.$transaction(async (tx) => {
-      const payment = await tx.kopoPayment.findUnique({ where: { id: paymentId } });
-      if (!payment) return false;
-      if (payment.walletCredited) return false;
-
-      const student = await tx.student.findUnique({ where: { id: studentId } });
-      if (!student) {
-        throw new Error(`Student not found: ${studentId}`);
-      }
-
-      // Block if this M-Pesa code already credited another payment row
-      if (mpesaRef) {
-        const siblingCredited = await tx.kopoPayment.findFirst({
-          where: {
-            id: { not: paymentId },
-            walletCredited: true,
-            OR: [
-              { transactionReference: { equals: mpesaRef, mode: 'insensitive' } },
-              { reference: { equals: mpesaRef, mode: 'insensitive' } },
-            ],
-          },
-          select: { id: true },
-        });
-        if (siblingCredited) {
-          await tx.kopoPayment.update({
-            where: { id: paymentId },
-            data: {
-              walletCredited: true,
-              studentId,
-              status: 'superseded',
-              description: `Superseded — M-Pesa ${mpesaRef} already credited via ${siblingCredited.id}`,
-            },
-          });
-          console.warn(
-            `[Kopokopo] Skip double credit — ${mpesaRef} already credited on ${siblingCredited.id}`,
-          );
-          return false;
-        }
-
-        const existingDeposit = await tx.walletTransaction.findFirst({
-          where: {
-            type: 'deposit',
-            reference: { equals: mpesaRef, mode: 'insensitive' },
-          },
-          select: { id: true, studentId: true },
-        });
-        if (existingDeposit) {
-          await tx.kopoPayment.update({
-            where: { id: paymentId },
-            data: {
-              walletCredited: true,
-              studentId: existingDeposit.studentId,
-              status: 'superseded',
-              description: `Superseded — wallet deposit ${mpesaRef} already exists`,
-            },
-          });
-          console.warn(
-            `[Kopokopo] Skip double credit — wallet deposit already exists for ${mpesaRef}`,
-          );
-          return false;
-        }
-      }
-
-      // Atomic claim on this payment row
-      const claimed = await tx.kopoPayment.updateMany({
-        where: { id: paymentId, walletCredited: false },
-        data: {
-          walletCredited: true,
-          studentId,
-          ...(mpesaRef ? { transactionReference: mpesaRef } : {}),
-        },
-      });
-      if (claimed.count === 0) return false;
-
-      await tx.student.update({
-        where: { id: studentId },
-        data: { walletBalance: { increment: amount } },
-      });
-
-      await tx.walletTransaction.create({
-        data: {
-          studentId,
-          amount,
-          type: 'deposit',
-          reference: mpesaRef || reference || paymentId,
-          description: `KopoKopo top-up from ${phone || 'M-Pesa'}`,
-        },
-      });
-
-      // Lock sibling duplicate payment rows so they cannot be allocated/credited later
-      if (mpesaRef) {
-        await tx.kopoPayment.updateMany({
-          where: {
-            id: { not: paymentId },
-            walletCredited: false,
-            OR: [
-              { transactionReference: { equals: mpesaRef, mode: 'insensitive' } },
-              { reference: { equals: mpesaRef, mode: 'insensitive' } },
-            ],
-          },
-          data: {
-            walletCredited: true,
-            status: 'superseded',
-            description: `Superseded after wallet credit of ${mpesaRef}`,
-          },
-        });
-      }
-
-      console.log(`[Kopokopo] Credited student ${studentId} wallet with KES ${amount} (ref ${mpesaRef || paymentId})`);
-      return true;
-    }, { maxWait: 5_000, timeout: 15_000 });
-  } catch (err: any) {
-    console.error('[Kopokopo] Wallet credit failed:', err?.message || err);
-    return false;
-  }
-}
-
 async function completePosSaleFromPayment(
   paymentId: string,
   mpesaReference: string,
@@ -350,14 +207,8 @@ async function completePosSaleFromPayment(
     return null;
   }
 
-  const cart = payment.posCart as PosCartLine[] | null;
-  if (!Array.isArray(cart) || cart.length === 0) return null;
-
-  const cashierId = payment.payerUserId;
-  if (!cashierId) {
-    console.warn('[Kopokopo] POS sale pending — no cashier on payment record', { paymentId });
-    return null;
-  }
+  const cart = parsePosCart(payment.posCart);
+  if (!cart) return null;
 
   const claimed = await prisma.kopoPayment.updateMany({
     where: { id: paymentId, posCompleted: false },
@@ -367,8 +218,8 @@ async function completePosSaleFromPayment(
 
   try {
     const { posTx } = await executeGuestMpesaSale(
-      cashierId,
-      cart,
+      cart.cashierId,
+      cart.items,
       mpesaReference,
     );
 
@@ -390,19 +241,10 @@ async function completePosSaleFromPayment(
 }
 
 async function applyPaymentUpdate(
-  existing: {
-    id: string;
-    studentId: string | null;
-    amount: number;
-    phone: string;
-    walletCredited: boolean;
-    purpose: string;
-    posCompleted: boolean;
-  },
+  existing: { id: string; amount: number; phone: string; purpose: string; posCompleted: boolean },
   parsed: ParsedKopoPayload,
   rawPayload?: object,
 ) {
-  const studentId = existing.studentId || parsed.studentId || null;
   const creditAmount = parsed.amount > 0 ? parsed.amount : existing.amount;
 
   const payment = await prisma.kopoPayment.update({
@@ -417,20 +259,9 @@ async function applyPaymentUpdate(
       tillNumber: parsed.tillNumber,
       transactionReference: parsed.transactionReference,
       originationTime: parsed.originationTime || undefined,
-      studentId,
       ...(rawPayload ? { rawPayload } : {}),
     },
   });
-
-  if (isConfirmedPaid(parsed) && studentId && !payment.walletCredited) {
-    await creditStudentWallet(
-      payment.id,
-      studentId,
-      creditAmount,
-      payment.phone,
-      parsed.transactionReference || parsed.reference || payment.id,
-    );
-  }
 
   let posReceiptNo: string | undefined;
   let posTransactionId: string | undefined;
@@ -451,7 +282,7 @@ async function applyPaymentUpdate(
   return { payment: updated, posReceiptNo, posTransactionId };
 }
 
-const STALE_PENDING_MS = 2 * 60 * 1000; // STK prompts expire ~60–90s; unblock retries after 2 min
+const STALE_PENDING_MS = 2 * 60 * 1000;
 const ORPHAN_PENDING_MS = 45 * 1000;
 
 function phoneKey(phone: string): string {
@@ -501,7 +332,6 @@ async function syncPendingFromKopokopo(paymentId: string, location: string) {
   }
 }
 
-/** Clear stale pending STKs for a phone; only sync the newest live one with Kopokopo. */
 async function resolvePhonePendingBlock(phone: string) {
   const key = phoneKey(phone);
   const now = Date.now();
@@ -547,7 +377,6 @@ async function resolvePhonePendingBlock(phone: string) {
 
   if (!newestLive?.location) return null;
 
-  // One Kopokopo status call max — do not sync every pending row (was making STK feel stuck)
   const updated = await syncPendingFromKopokopo(newestLive.id, newestLive.location);
   if (updated && updated.status !== 'pending') return null;
 
@@ -603,9 +432,7 @@ function buildKopoEmitPayload(
     phone: payment?.phone ?? parsed.phone,
     transactionReference: parsed.transactionReference ?? payment?.transactionReference,
     originationTime: parsed.originationTime,
-    studentId: payment?.studentId,
-    walletCredited: payment?.walletCredited ?? false,
-    purpose: payment?.purpose,
+    purpose: payment?.purpose ?? 'pos_sale',
     posCompleted: payment?.posCompleted ?? false,
     posReceiptNo: extras?.posReceiptNo,
     posTransactionId: extras?.posTransactionId,
@@ -624,25 +451,19 @@ function emitKopokopoUpdate(req: Request, payload: Record<string, unknown>) {
   }
 }
 
-// POST /api/kopokopo/stkpush
+// POST /api/kopokopo/stkpush — POS guest sales only
 router.post('/stkpush', async (req: Request, res: Response) => {
   const user = getOptionalUser(req);
   const {
     phone,
     amount,
     description,
-    studentId,
-    purpose: rawPurpose,
     items,
-    kiosk: kioskFlag,
   } = req.body as {
     phone: string;
     amount: number;
     description?: string;
-    studentId?: string;
-    purpose?: KopoPurpose;
     items?: PosCartLine[];
-    kiosk?: boolean;
   };
 
   if (!phone || !amount) {
@@ -656,64 +477,33 @@ router.post('/stkpush', async (req: Request, res: Response) => {
     return;
   }
 
-  let purpose: KopoPurpose = rawPurpose || (studentId ? 'wallet_topup' : 'general');
-
-  let linkedStudent: { id: string; name: string; regNo: string } | null = null;
-  if (studentId) {
-    purpose = 'wallet_topup';
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      select: { id: true, name: true, regNo: true },
-    });
-    if (!student) {
-      res.status(404).json({ error: 'Student not found' });
-      return;
-    }
-    linkedStudent = student;
-  } else if (purpose === 'pos_sale') {
-    const isKiosk = Boolean(kioskFlag);
-    if (!isKiosk && (!user || !['admin', 'restaurant'].includes(user.role))) {
-      res.status(403).json({ error: 'Only restaurant staff can initiate POS M-Pesa sales' });
-      return;
-    }
-    if (!Array.isArray(items) || items.length === 0) {
-      res.status(422).json({ error: 'Cart items are required for POS M-Pesa sales' });
-      return;
-    }
-  } else {
-    if (!user || user.role === 'student') {
-      res.status(403).json({ error: 'STK push is available for parents and staff only' });
-      return;
-    }
-    purpose = 'general';
+  if (!user || !canManageOps(user.role)) {
+    res.status(403).json({ error: 'Only bakery staff can initiate POS M-Pesa sales' });
+    return;
   }
 
-  try {
-    const isKioskPos = purpose === 'pos_sale' && Boolean(kioskFlag);
-    const payerId = user?.id || (isKioskPos ? 'kiosk' : null);
-    const payerRole = user?.role || (isKioskPos ? 'kiosk' : null);
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(422).json({ error: 'Cart items are required for POS M-Pesa sales' });
+    return;
+  }
 
+  const purpose = 'pos_sale';
+  const posCart: PosCartPayload = { cashierId: user.id, items };
+
+  try {
     console.log('[Kopokopo] Initiating STK Push →', {
       phone,
       amount: numericAmount,
-      studentId,
       purpose,
-      user: user?.role,
-      kiosk: isKioskPos,
+      user: user.role,
     });
 
     const existingPending = await resolvePhonePendingBlock(phone);
     if (existingPending) {
-      if (purpose === 'pos_sale' && items) {
-        await prisma.kopoPayment.update({
-          where: { id: existingPending.id },
-          data: {
-            posCart: items,
-            payerUserId: payerId || existingPending.payerUserId,
-            payerRole: payerRole || existingPending.payerRole,
-          },
-        });
-      }
+      await prisma.kopoPayment.update({
+        where: { id: existingPending.id },
+        data: { posCart },
+      });
       console.log('[Kopokopo] Resuming pending STK for phone', phoneKey(phone));
       respondPendingStk(res, existingPending, numericAmount, true);
       return;
@@ -724,22 +514,9 @@ router.post('/stkpush', async (req: Request, res: Response) => {
         status: 'pending',
         amount: numericAmount,
         phone,
-        studentId: studentId || null,
-        payerUserId: payerId,
-        payerRole: payerRole,
         purpose,
-        posCart: purpose === 'pos_sale' ? items : undefined,
-        description:
-          description ||
-          (linkedStudent
-            ? `Wallet top-up for ${linkedStudent.name} · ${linkedStudent.regNo}`
-            : purpose === 'pos_sale'
-              ? isKioskPos
-                ? 'SmartPOS Kiosk Cafeteria Sale'
-                : 'SmartPOS Cafeteria Sale'
-              : purpose === 'wallet_topup'
-                ? 'SmartPOS Wallet Top-up'
-                : 'SmartPOS Payment'),
+        posCart,
+        description: description || 'Slow Rise Co bakery sale',
       },
     });
 
@@ -749,9 +526,6 @@ router.post('/stkpush', async (req: Request, res: Response) => {
         phone,
         amount: numericAmount,
         description: pending.description,
-        studentId,
-        studentRegNo: linkedStudent?.regNo || (purpose === 'pos_sale' ? 'GUEST' : undefined),
-        studentName: linkedStudent?.name || (purpose === 'pos_sale' ? 'Guest' : undefined),
         paymentId: pending.id,
         purpose,
       }));
@@ -827,7 +601,6 @@ router.get('/status', async (req: Request, res: Response) => {
   const normalized = normalizeLocation(location);
 
   try {
-    // Fast path: already finalized in DB — skip Kopokopo round-trip
     const locId = locationId(normalized);
     const existing =
       (await prisma.kopoPayment.findFirst({
@@ -850,8 +623,6 @@ router.get('/status', async (req: Request, res: Response) => {
         transactionReference: existing.transactionReference,
         phone: existing.phone,
         paymentId: existing.id,
-        studentId: existing.studentId,
-        walletCredited: existing.walletCredited,
         purpose: existing.purpose,
         posCompleted: existing.posCompleted,
         posTransactionId: existing.posTransactionId,
@@ -869,72 +640,51 @@ router.get('/status', async (req: Request, res: Response) => {
       mapped = 'pending';
     }
 
-    const parsed: ParsedKopoPayload = {
-      ...fromRaw,
-      rawStatus: mapped === 'pending' && isSuccessStatus(statusData.status) && !mpesaRef
-        ? 'Pending'
-        : statusData.status,
-      status: mapped,
-      amount: statusData.amount || fromRaw.amount || 0,
-      currency: statusData.currency || fromRaw.currency || 'KES',
-      phone: statusData.phone || fromRaw.phone || '',
-      reference: fromRaw.reference || String(statusData.reference || ''),
-      transactionReference: mpesaRef,
-      location: normalized,
-      originationTime: statusData.originationTime || fromRaw.originationTime || '',
-      tillNumber: process.env.KOPOKOPO_TILL_NUMBER || fromRaw.tillNumber || '',
-    };
+    if (existing) {
+      const parsed: ParsedKopoPayload = {
+        ...fromRaw,
+        status: mapped,
+        rawStatus: statusData.status,
+        amount: statusData.amount || existing.amount,
+        currency: statusData.currency || existing.currency,
+        phone: statusData.phone || existing.phone,
+        transactionReference: mpesaRef || existing.transactionReference || '',
+        location: normalized,
+        tillNumber: existing.tillNumber,
+        reference: String(existing.reference || fromRaw.reference || ''),
+        originationTime: statusData.originationTime || existing.originationTime || '',
+      };
 
-    let payment = existing || (await findKopoPayment(parsed, location));
-    let posReceiptNo: string | undefined;
-    let posTransactionId: string | undefined;
-
-    if (payment && isConfirmedPaid(parsed)) {
-      const paymentId = payment.id;
-      try {
-        const result = await applyPaymentUpdate(payment, parsed, statusData.raw ?? undefined);
-        payment = result.payment;
-        posReceiptNo = result.posReceiptNo;
-        posTransactionId = result.posTransactionId;
-      } catch (creditErr: any) {
-        // Payment succeeded at M-Pesa — don't leave the UI hanging if wallet/POS post-processing fails
-        console.error('[Kopokopo] Status apply failed after success:', creditErr?.message || creditErr);
-        payment = await prisma.kopoPayment.update({
-          where: { id: paymentId },
-          data: {
-            status: 'success',
-            ...(statusData.raw ? { rawPayload: statusData.raw as object } : {}),
-            ...(parsed.transactionReference
-              ? { transactionReference: parsed.transactionReference }
-              : {}),
-          },
+      if (mapped !== 'pending') {
+        const result = await applyPaymentUpdate(existing, parsed, statusData.raw ?? undefined);
+        res.json({
+          status: result.payment?.status ?? mapped,
+          amount: result.payment?.amount,
+          currency: result.payment?.currency,
+          reference: result.payment?.reference,
+          transactionReference: result.payment?.transactionReference,
+          phone: result.payment?.phone,
+          paymentId: result.payment?.id,
+          purpose: result.payment?.purpose,
+          posCompleted: result.payment?.posCompleted,
+          posTransactionId: result.posTransactionId || result.payment?.posTransactionId,
+          posReceiptNo: result.posReceiptNo,
         });
+        return;
       }
-    } else if (payment && parsed.status !== 'pending') {
-      payment = await prisma.kopoPayment.update({
-        where: { id: payment.id },
-        data: {
-          status: parsed.status,
-          ...(statusData.raw ? { rawPayload: statusData.raw as object } : {}),
-        },
-      });
     }
 
     res.json({
-      status: parsed.status,
-      rawStatus: statusData.status,
-      amount: parsed.amount || payment?.amount,
-      currency: parsed.currency,
-      reference: parsed.reference,
-      transactionReference: payment?.transactionReference || parsed.transactionReference,
-      phone: payment?.phone || parsed.phone,
-      paymentId: payment?.id,
-      studentId: payment?.studentId,
-      walletCredited: payment?.walletCredited ?? false,
-      purpose: payment?.purpose,
-      posCompleted: payment?.posCompleted ?? false,
-      posReceiptNo,
-      posTransactionId,
+      status: mapped,
+      amount: statusData.amount,
+      currency: statusData.currency,
+      reference: statusData.reference,
+      transactionReference: mpesaRef,
+      phone: statusData.phone,
+      paymentId: existing?.id,
+      purpose: existing?.purpose ?? 'pos_sale',
+      posCompleted: existing?.posCompleted ?? false,
+      posTransactionId: existing?.posTransactionId,
     });
   } catch (err: any) {
     console.error('[Kopokopo] Status Check Error:', err?.response?.data || err.message);
@@ -945,8 +695,7 @@ router.get('/status', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/kopokopo/payment/callback
-router.post('/payment/callback', async (req: Request, res: Response) => {
+async function handlePaymentCallback(req: Request, res: Response) {
   const signature = req.headers['x-kopokopo-signature'] as string;
   const rawBody = (req as any).rawBody as Buffer;
 
@@ -974,7 +723,6 @@ router.post('/payment/callback', async (req: Request, res: Response) => {
       posReceiptNo = result.posReceiptNo;
       posTransactionId = result.posTransactionId;
     } else if (parsed.location || parsed.reference || parsed.transactionReference) {
-      // Final M-Pesa-ref guard (till webhooks reuse event ids across retries)
       if (parsed.transactionReference) {
         const byMpesa = await prisma.kopoPayment.findFirst({
           where: {
@@ -996,7 +744,6 @@ router.post('/payment/callback', async (req: Request, res: Response) => {
         }
       }
 
-      const inferredPurpose = (parsed.purpose as KopoPurpose) || 'general';
       payment = await prisma.kopoPayment.create({
         data: {
           reference: parsed.reference || undefined,
@@ -1008,29 +755,13 @@ router.post('/payment/callback', async (req: Request, res: Response) => {
           tillNumber: parsed.tillNumber,
           transactionReference: parsed.transactionReference,
           originationTime: parsed.originationTime || undefined,
-          studentId: parsed.studentId || null,
-          purpose: inferredPurpose,
-          description:
-            inferredPurpose === 'pos_sale'
-              ? 'SmartPOS Guest Cafeteria Sale'
-              : 'SmartPOS Payment',
+          purpose: 'pos_sale',
+          description: 'Slow Rise Co bakery sale',
           rawPayload: payload,
         },
       });
-
-      if (isConfirmedPaid(parsed) && payment.studentId && !payment.walletCredited) {
-        await creditStudentWallet(
-          payment.id,
-          payment.studentId,
-          payment.amount,
-          payment.phone,
-          parsed.transactionReference || parsed.reference || payment.id,
-        );
-        payment = await prisma.kopoPayment.findUnique({ where: { id: payment.id } });
-      }
     }
 
-    // Only broadcast terminal success when M-Pesa receipt exists (PIN completed)
     if (parsed.status === 'success' && !isConfirmedPaid(parsed)) {
       parsed.status = 'pending';
       parsed.rawStatus = 'Pending';
@@ -1043,7 +774,9 @@ router.post('/payment/callback', async (req: Request, res: Response) => {
     console.error('[Kopokopo] Callback processing error:', err.message);
     res.status(500).json({ error: 'Callback processing failed' });
   }
-});
+}
+
+router.post('/payment/callback', handlePaymentCallback);
 
 // POST /api/kopokopo/webhooks
 router.post('/webhooks', async (req: Request, res: Response) => {
@@ -1074,77 +807,57 @@ router.post('/webhooks', async (req: Request, res: Response) => {
       eventType === 'b2b_transaction_received'
     ) {
       const parsed = parseKopoPayload(payload);
-      // Till buygoods is paid only when M-Pesa receipt is present
       if (!parsed.transactionReference) {
         console.warn('[Kopokopo] Ignoring buygoods webhook without M-Pesa reference');
       } else {
         parsed.status = 'success';
         parsed.rawStatus = 'Received';
 
-      let payment = await findKopoPayment(parsed);
-      let posReceiptNo: string | undefined;
-      let posTransactionId: string | undefined;
+        let payment = await findKopoPayment(parsed);
+        let posReceiptNo: string | undefined;
+        let posTransactionId: string | undefined;
 
-      if (payment) {
-        const result = await applyPaymentUpdate(payment, parsed, payload);
-        payment = result.payment;
-        posReceiptNo = result.posReceiptNo;
-        posTransactionId = result.posTransactionId;
-      } else {
-        const inferredPurpose = (parsed.purpose as KopoPurpose) || 'general';
-        // Re-check M-Pesa ref right before insert to avoid race duplicates from concurrent webhooks
-        const existingByRef = parsed.transactionReference
-          ? await prisma.kopoPayment.findFirst({
-              where: {
-                transactionReference: {
-                  equals: String(parsed.transactionReference).trim(),
-                  mode: 'insensitive',
-                },
-              },
-              orderBy: { createdAt: 'asc' },
-            })
-          : null;
-
-        if (existingByRef) {
-          const result = await applyPaymentUpdate(existingByRef, parsed, payload);
+        if (payment) {
+          const result = await applyPaymentUpdate(payment, parsed, payload);
           payment = result.payment;
           posReceiptNo = result.posReceiptNo;
           posTransactionId = result.posTransactionId;
         } else {
-          payment = await prisma.kopoPayment.create({
-            data: {
-              reference: parsed.reference || undefined,
-              status: 'success',
-              amount: parsed.amount,
-              currency: parsed.currency,
-              phone: parsed.phone,
-              tillNumber: parsed.tillNumber,
-              eventType,
-              transactionReference: parsed.transactionReference,
-              studentId: parsed.studentId || null,
-              purpose: inferredPurpose,
-              description:
-                inferredPurpose === 'pos_sale'
-                  ? 'SmartPOS Guest Cafeteria Sale'
-                  : 'SmartPOS Payment',
-              rawPayload: payload,
+          const existingByRef = await prisma.kopoPayment.findFirst({
+            where: {
+              transactionReference: {
+                equals: String(parsed.transactionReference).trim(),
+                mode: 'insensitive',
+              },
             },
+            orderBy: { createdAt: 'asc' },
           });
 
-          if (payment.studentId && !payment.walletCredited) {
-            await creditStudentWallet(
-              payment.id,
-              payment.studentId,
-              payment.amount,
-              payment.phone,
-              parsed.transactionReference || parsed.reference || payment.id,
-            );
-            payment = await prisma.kopoPayment.findUnique({ where: { id: payment.id } });
+          if (existingByRef) {
+            const result = await applyPaymentUpdate(existingByRef, parsed, payload);
+            payment = result.payment;
+            posReceiptNo = result.posReceiptNo;
+            posTransactionId = result.posTransactionId;
+          } else {
+            payment = await prisma.kopoPayment.create({
+              data: {
+                reference: parsed.reference || undefined,
+                status: 'success',
+                amount: parsed.amount,
+                currency: parsed.currency,
+                phone: parsed.phone,
+                tillNumber: parsed.tillNumber,
+                eventType,
+                transactionReference: parsed.transactionReference,
+                purpose: 'pos_sale',
+                description: 'Slow Rise Co till payment',
+                rawPayload: payload,
+              },
+            });
           }
         }
-      }
 
-      emitKopokopoUpdate(req, buildKopoEmitPayload(payment, parsed, { posReceiptNo, posTransactionId }));
+        emitKopokopoUpdate(req, buildKopoEmitPayload(payment, parsed, { posReceiptNo, posTransactionId }));
       }
     }
 
@@ -1167,7 +880,6 @@ router.post('/subscribe-webhooks', async (_req: Request, res: Response) => {
     'buygoods_transaction_received',
     'buygoods_transaction_reversed',
     'settlement_transfer_completed',
-    'customer_created',
   ];
 
   const results: Record<string, string> = {};
@@ -1186,7 +898,7 @@ router.post('/subscribe-webhooks', async (_req: Request, res: Response) => {
   res.json({ message: 'Webhook subscription complete', results });
 });
 
-// POST /api/kopokopo/reconcile-pos — complete successful guest POS M-Pesa sales still pending
+// POST /api/kopokopo/reconcile-pos
 router.post('/reconcile-pos', async (_req: Request, res: Response) => {
   try {
     const pending = await prisma.kopoPayment.findMany({
@@ -1214,474 +926,36 @@ router.post('/reconcile-pos', async (_req: Request, res: Response) => {
   }
 });
 
-// POST /api/kopokopo/reconcile — manually credit any successful but uncredited payments
-router.post('/reconcile', async (_req: Request, res: Response) => {
-  try {
-    const pending = await prisma.kopoPayment.findMany({
-      where: {
-        walletCredited: false,
-        studentId: { not: null },
-        status: 'success',
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-
-    const results = [];
-    for (const payment of pending) {
-      const ok = await creditStudentWallet(
-        payment.id,
-        payment.studentId!,
-        payment.amount,
-        payment.phone,
-        payment.transactionReference || payment.reference || payment.id,
-      );
-      results.push({ paymentId: payment.id, credited: ok });
-    }
-
-    res.json({ reconciled: results.length, results });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-function isAllocatablePayment(payment: {
-  status: string;
-  walletCredited: boolean;
-  purpose: string;
-  posCompleted: boolean;
-  amount: number;
-}): boolean {
-  if (!isSuccessStatus(payment.status)) return false;
-  if (payment.walletCredited) return false;
-  if (payment.purpose === 'pos_sale') return false;
-  if (payment.posCompleted) return false;
-  if (payment.amount <= 0) return false;
-  return true;
-}
-
-async function supersedeDuplicatePayments(allocated: {
-  id: string;
-  transactionReference: string;
-  phone: string;
-  amount: number;
-}) {
-  const orFilters: Array<Record<string, unknown>> = [];
-
-  if (allocated.transactionReference) {
-    orFilters.push({
-      transactionReference: {
-        equals: normalizeMpesaRef(allocated.transactionReference),
-        mode: 'insensitive',
-      },
-    });
-  }
-
-  const pk = phoneKey(allocated.phone);
-  if (pk) {
-    orFilters.push({
-      phone: { endsWith: pk },
-      amount: allocated.amount,
-      status: 'pending',
-    });
-  }
-
-  if (orFilters.length === 0) return 0;
-
-  const result = await prisma.kopoPayment.updateMany({
-    where: {
-      id: { not: allocated.id },
-      walletCredited: false,
-      status: { in: ['pending', 'success'] },
-      OR: orFilters,
-    },
-    data: {
-      status: 'superseded',
-      walletCredited: true,
-      description: 'Superseded by manual wallet allocation',
-    },
-  });
-
-  return result.count;
-}
-
-function ensureFinanceOrAdmin(req: Request, res: Response): boolean {
-  if (!req.user || !['admin', 'finance'].includes(req.user.role)) {
-    res.status(403).json({ error: 'Admin or finance access required' });
-    return false;
-  }
-  return true;
-}
-
-// GET /api/kopokopo/search?q= — find unallocated till payments by M-Pesa code, phone, or ref
-router.get('/search', ensureAuthenticated, async (req: Request, res: Response) => {
-  if (!ensureFinanceOrAdmin(req, res)) return;
-
-  const q = String(req.query.q || '').trim();
-  if (q.length < 2) {
-    res.json([]);
-    return;
-  }
-
-  try {
-    const payments = await prisma.kopoPayment.findMany({
-      where: {
-        walletCredited: false,
-        purpose: { not: 'pos_sale' },
-        posCompleted: false,
-        status: { in: ['success', 'received', 'complete', 'completed', 'paid'] },
-        amount: { gt: 0 },
-        OR: [
-          { transactionReference: { contains: q, mode: 'insensitive' } },
-          { reference: { contains: q, mode: 'insensitive' } },
-          { phone: { contains: q } },
-          { id: q },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
-
-    const studentIds = [...new Set(payments.map((p) => p.studentId).filter(Boolean) as string[])];
-    const students =
-      studentIds.length > 0
-        ? await prisma.student.findMany({
-            where: { id: { in: studentIds } },
-            select: { id: true, name: true, regNo: true },
-          })
-        : [];
-    const studentById = new Map(students.map((s) => [s.id, s]));
-
-    res.json(
-      payments.map((p) => {
-        const student = p.studentId ? studentById.get(p.studentId) : undefined;
-        return {
-          id: p.id,
-          amount: p.amount,
-          phone: p.phone,
-          status: p.status,
-          purpose: p.purpose,
-          transactionReference: p.transactionReference || p.reference || '',
-          date: p.originationTime || p.createdAt,
-          studentId: p.studentId,
-          studentName: student?.name || null,
-          studentRegNo: student?.regNo || null,
-          allocatable: isAllocatablePayment(p),
-        };
-      }),
-    );
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Search failed' });
-  }
-});
-
-// POST /api/kopokopo/:id/allocate — assign till payment to a student and credit wallet
-router.post('/:id/allocate', ensureAuthenticated, async (req: Request, res: Response) => {
-  if (!ensureFinanceOrAdmin(req, res)) return;
-
-  const { studentId } = req.body as { studentId?: string };
-  if (!studentId) {
-    res.status(422).json({ error: 'studentId is required' });
-    return;
-  }
-
-  const paymentId = String(req.params.id);
-  if (!paymentId) {
-    res.status(422).json({ error: 'Payment id is required' });
-    return;
-  }
-
-  try {
-    const payment = await prisma.kopoPayment.findUnique({ where: { id: paymentId } });
-    if (!payment) {
-      res.status(404).json({ error: 'Payment not found' });
-      return;
-    }
-
-    if (!isAllocatablePayment(payment)) {
-      res.status(422).json({
-        error: 'Payment cannot be allocated — it may already be credited, failed, or is a POS sale',
-      });
-      return;
-    }
-
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      select: { id: true, name: true, regNo: true, walletFrozen: true, walletBalance: true },
-    });
-    if (!student) {
-      res.status(404).json({ error: 'Student not found' });
-      return;
-    }
-    if (student.walletFrozen) {
-      res.status(422).json({ error: 'Student wallet is frozen' });
-      return;
-    }
-
-    const mpesaRef = normalizeMpesaRef(payment.transactionReference || payment.reference);
-    if (mpesaRef) {
-      const alreadyCredited = await prisma.kopoPayment.findFirst({
-        where: {
-          id: { not: payment.id },
-          walletCredited: true,
-          OR: [
-            { transactionReference: { equals: mpesaRef, mode: 'insensitive' } },
-            { reference: { equals: mpesaRef, mode: 'insensitive' } },
-          ],
-        },
-        select: { id: true, studentId: true },
-      });
-      if (alreadyCredited) {
-        await prisma.kopoPayment.update({
-          where: { id: payment.id },
-          data: {
-            walletCredited: true,
-            status: 'superseded',
-            description: `Superseded — M-Pesa ${mpesaRef} already allocated`,
-          },
-        });
-        res.status(409).json({
-          error: `This M-Pesa code (${mpesaRef}) was already credited to a student wallet`,
-        });
-        return;
-      }
-
-      const existingDeposit = await prisma.walletTransaction.findFirst({
-        where: {
-          type: 'deposit',
-          reference: { equals: mpesaRef, mode: 'insensitive' },
-        },
-        select: { id: true },
-      });
-      if (existingDeposit) {
-        await prisma.kopoPayment.update({
-          where: { id: payment.id },
-          data: {
-            walletCredited: true,
-            status: 'superseded',
-            description: `Superseded — wallet deposit ${mpesaRef} already exists`,
-          },
-        });
-        res.status(409).json({
-          error: `This M-Pesa code (${mpesaRef}) already has a wallet deposit recorded`,
-        });
-        return;
-      }
-    }
-
-    await prisma.kopoPayment.update({
-      where: { id: payment.id },
-      data: {
-        studentId,
-        purpose: 'wallet_topup',
-        allocatedBy: req.user!.id,
-        allocatedAt: new Date(),
-        description: `Wallet top-up for ${student.name} · ${student.regNo} (manual allocation)`,
-      },
-    });
-
-    const credited = await creditStudentWallet(
-      payment.id,
-      studentId,
-      payment.amount,
-      payment.phone,
-      mpesaRef || payment.transactionReference || payment.reference || payment.id,
-    );
-
-    if (!credited) {
-      res.status(409).json({ error: 'Wallet credit failed — payment may already be allocated' });
-      return;
-    }
-
-    const superseded = await supersedeDuplicatePayments({
-      id: payment.id,
-      transactionReference: payment.transactionReference,
-      phone: payment.phone,
-      amount: payment.amount,
-    });
-
-    const updatedStudent = await prisma.student.findUnique({
-      where: { id: studentId },
-      select: { walletBalance: true },
-    });
-
-    await logAuditEvent({
-      eventType: 'wallet_allocation',
-      userType: req.user!.role,
-      userId: req.user!.id,
-      userName: req.user!.name,
-      action: 'Manual Wallet Allocation',
-      description: `Allocated KES ${payment.amount} (${payment.transactionReference || payment.id}) to ${student.regNo}`,
-      metadata: {
-        paymentId: payment.id,
-        studentId,
-        amount: payment.amount,
-        transactionReference: payment.transactionReference,
-        supersededCount: superseded,
-      },
-      ipAddress: req.ip,
-    });
-
-    res.json({
-      message: 'Wallet topped up successfully',
-      paymentId: payment.id,
-      studentId,
-      studentName: student.name,
-      studentRegNo: student.regNo,
-      amount: payment.amount,
-      newBalance: updatedStudent?.walletBalance ?? student.walletBalance + payment.amount,
-      supersededCount: superseded,
-    });
-  } catch (err: any) {
-    console.error('[Kopokopo] Allocate error:', err?.message || err);
-    res.status(500).json({ error: err.message || 'Allocation failed' });
-  }
-});
-
-// GET /api/kopokopo/webhook-status — diagnostics for till webhook delivery
+// GET /api/kopokopo/webhook-status
 router.get('/webhook-status', ensureAuthenticated, async (req: Request, res: Response) => {
-  if (!ensureFinanceOrAdmin(req, res)) return;
-
-  try {
-    const [latest, todayCount] = await Promise.all([
-      prisma.kopoPayment.findFirst({
-        where: { eventType: 'buygoods_transaction_received', amount: { gt: 0 } },
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true, amount: true, transactionReference: true },
-      }),
-      prisma.kopoPayment.count({
-        where: {
-          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-          amount: { gt: 0 },
-        },
-      }),
-    ]);
-
-    const webhookUrl = process.env.KOPOKOPO_WEBHOOK_URL || '';
-    const hoursSinceLast =
-      latest?.createdAt
-        ? Math.round((Date.now() - latest.createdAt.getTime()) / 3_600_000)
-        : null;
-
-    res.json({
-      tillNumber: process.env.KOPOKOPO_TILL_NUMBER || '',
-      webhookUrl,
-      callbackUrl: process.env.KOPOKOPO_CALLBACK_URL || '',
-      latestPayment: latest,
-      paymentsToday: todayCount,
-      hoursSinceLastPayment: hoursSinceLast,
-      webhookLikelyStale: hoursSinceLast !== null && hoursSinceLast > 24,
-      hint:
-        'Manual till payments (Lipa na M-Pesa → Buy Goods) only appear when KopoKopo webhooks reach your server. Ensure KOPOKOPO_WEBHOOK_URL points at production (e.g. https://betterfork.millenium.co.ke/api/kopokopo/webhooks) and call POST /api/kopokopo/subscribe-webhooks after changing it.',
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Status check failed' });
-  }
-});
-
-// POST /api/kopokopo/register-manual — register a till payment from M-Pesa SMS when webhook missed it
-router.post('/register-manual', ensureAuthenticated, async (req: Request, res: Response) => {
-  if (!ensureFinanceOrAdmin(req, res)) return;
-
-  const { transactionReference, amount, phone, notes } = req.body as {
-    transactionReference?: string;
-    amount?: number;
-    phone?: string;
-    notes?: string;
-  };
-
-  const ref = String(transactionReference || '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, '');
-  const amt = Number(amount);
-
-  if (!ref || ref.length < 8) {
-    res.status(422).json({ error: 'Valid M-Pesa transaction code is required (e.g. UG7QOA5LRC)' });
-    return;
-  }
-  if (!Number.isFinite(amt) || amt <= 0) {
-    res.status(422).json({ error: 'Valid positive amount is required' });
+  if (!canManageOps(req.user!.role)) {
+    res.status(403).json({ error: 'Not authorized' });
     return;
   }
 
-  try {
-    const existing = await prisma.kopoPayment.findFirst({
-      where: {
-        OR: [
-          { transactionReference: { equals: ref, mode: 'insensitive' } },
-          { reference: { equals: ref, mode: 'insensitive' } },
-        ],
-      },
-    });
-
-    if (existing) {
-      if (existing.walletCredited) {
-        res.status(409).json({ error: 'This M-Pesa code is already allocated to a student wallet' });
-        return;
-      }
-      res.json({
-        message: 'Payment already registered',
-        payment: {
-          id: existing.id,
-          amount: existing.amount,
-          transactionReference: existing.transactionReference || existing.reference,
-          allocatable: isAllocatablePayment(existing),
-        },
-      });
-      return;
-    }
-
-    const payment = await prisma.kopoPayment.create({
-      data: {
-        status: 'success',
-        amount: amt,
-        phone: String(phone || '').trim(),
-        transactionReference: ref,
-        purpose: 'general',
-        eventType: 'buygoods_transaction_received',
-        tillNumber: process.env.KOPOKOPO_TILL_NUMBER || '',
-        description: notes?.trim() || `Manual till payment registered · ${ref}`,
-      },
-    });
-
-    await logAuditEvent({
-      eventType: 'manual_payment_register',
-      userType: req.user!.role,
-      userId: req.user!.id,
-      userName: req.user!.name,
-      action: 'Register Manual Till Payment',
-      description: `Registered M-Pesa ${ref} for KES ${amt}`,
-      metadata: { paymentId: payment.id, transactionReference: ref, amount: amt },
-      ipAddress: req.ip,
-    });
-
-    res.status(201).json({
-      message: 'Payment registered — you can now allocate it to a student',
-      payment: {
-        id: payment.id,
-        amount: payment.amount,
-        transactionReference: payment.transactionReference,
-        phone: payment.phone,
-        allocatable: true,
-      },
-    });
-  } catch (err: any) {
-    console.error('[Kopokopo] Manual register error:', err?.message || err);
-    res.status(500).json({ error: err.message || 'Registration failed' });
-  }
+  res.json({
+    callbackUrl: process.env.KOPOKOPO_CALLBACK_URL || null,
+    webhookUrl: process.env.KOPOKOPO_WEBHOOK_URL || null,
+    tillNumber: process.env.KOPOKOPO_TILL_NUMBER || null,
+    configured: Boolean(
+      process.env.KOPOKOPO_CLIENT_ID &&
+        process.env.KOPOKOPO_CLIENT_SECRET &&
+        process.env.KOPOKOPO_API_KEY,
+    ),
+  });
 });
 
 // GET /api/kopokopo/transactions
-router.get('/transactions', async (_req: Request, res: Response) => {
+router.get('/transactions', ensureOwner, async (req: Request, res: Response) => {
+  const take = Math.min(Number(req.query.limit) || 100, 500);
   try {
-    const transactions = await prisma.kopoPayment.findMany({
+    const payments = await prisma.kopoPayment.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take,
     });
-    res.json(transactions);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch Kopokopo transactions' });
+    res.json(payments);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

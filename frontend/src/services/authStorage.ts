@@ -1,15 +1,25 @@
-export type UserRole = "admin" | "student" | "parent" | "finance" | "restaurant";
+export type UserRole = "owner" | "cashier";
 
 export type AuthUser = {
   id: string;
   name: string;
   role: UserRole;
   email?: string;
-  regNo?: string;
-  walletBalance?: number;
 };
 
-const AUTH_KEYS = ["token", "role", "userName", "studentName", "regNo", "adminName"] as const;
+const AUTH_KEYS = ["token", "role", "userName", "adminName", "studentName", "regNo"] as const;
+
+const VALID_ROLES: UserRole[] = ["owner", "cashier"];
+
+/** Map legacy role names from older sessions/tokens */
+function normalizeRole(role: string | undefined | null): UserRole | null {
+  if (!role) return null;
+  const normalized = role.toLowerCase();
+  if (VALID_ROLES.includes(normalized as UserRole)) return normalized as UserRole;
+  if (normalized === "admin") return "owner";
+  if (normalized === "restaurant" || normalized === "finance") return "cashier";
+  return null;
+}
 
 export function getToken(): string | null {
   const token = localStorage.getItem("token");
@@ -17,13 +27,7 @@ export function getToken(): string | null {
 }
 
 export function getStoredRole(): UserRole | null {
-  const role = localStorage.getItem("role");
-  if (!role) return null;
-  const normalized = role.toLowerCase();
-  if (["admin", "student", "parent", "finance", "restaurant"].includes(normalized)) {
-    return normalized as UserRole;
-  }
-  return null;
+  return normalizeRole(localStorage.getItem("role"));
 }
 
 function decodeTokenPayload(token: string): { role?: string; exp?: number } | null {
@@ -37,11 +41,7 @@ function decodeTokenPayload(token: string): { role?: string; exp?: number } | nu
 }
 
 export function getTokenRole(token: string): UserRole | null {
-  const role = decodeTokenPayload(token)?.role?.toLowerCase();
-  if (role && ["admin", "student", "parent", "finance", "restaurant"].includes(role)) {
-    return role as UserRole;
-  }
-  return null;
+  return normalizeRole(decodeTokenPayload(token)?.role);
 }
 
 export function isTokenExpired(token: string): boolean {
@@ -61,14 +61,9 @@ export function hasValidStoredSession(): boolean {
 export function persistAuthSession(user: AuthUser, token: string) {
   localStorage.setItem("token", token);
   localStorage.setItem("role", user.role);
-
-  if (user.role === "admin") {
+  localStorage.setItem("userName", user.name);
+  if (user.role === "owner") {
     localStorage.setItem("adminName", user.name);
-  } else if (user.role === "student") {
-    localStorage.setItem("studentName", user.name);
-    if (user.regNo) localStorage.setItem("regNo", user.regNo);
-  } else {
-    localStorage.setItem("userName", user.name);
   }
 }
 

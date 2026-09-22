@@ -50,13 +50,13 @@ export async function buildReceiptPdf(data: OrderReceiptData, logoUrl?: string):
   doc.setTextColor(10, 31, 68);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("Cafeteria Receipt", centerX, y, { align: "center" });
+  doc.text("Bakery Receipt", centerX, y, { align: "center" });
   y += 5;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(107, 114, 128);
-  doc.text("Better Fork Restaurant Limited", centerX, y, { align: "center" });
+  doc.text("Slow Rise Co", centerX, y, { align: "center" });
   y += 8;
 
   doc.setFillColor(232, 244, 253);

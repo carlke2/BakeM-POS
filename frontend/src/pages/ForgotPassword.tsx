@@ -1,17 +1,16 @@
 import { useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import API from "@/services/api";
 import { toast } from "@/services/toast";
 import Loader from "@/components/ui/loader";
 import logo from "@/assets/LOGO.png";
 
-type ResetRole = "student" | "parent";
 type Step = "email" | "code" | "password" | "done";
 
-const BRAND = "#0A1F44";
+const BRAND = "#39B54A";
 const inputCls =
-  "w-full px-3 py-3 bg-gray-100 border-2 border-transparent focus:border-[#0A1F44]/30 focus:bg-white rounded-xl outline-none text-sm transition";
+  "w-full px-3 py-3 bg-gray-100 border-2 border-transparent focus:border-[#39B54A]/30 focus:bg-white rounded-xl outline-none text-sm transition";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.trim().split("@");
@@ -26,11 +25,8 @@ function maskEmail(email: string): string {
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const initialRole = (searchParams.get("role") as ResetRole) || "parent";
 
   const [step, setStep] = useState<Step>("email");
-  const [role, setRole] = useState<ResetRole>(initialRole === "student" ? "student" : "parent");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -43,7 +39,7 @@ const ForgotPassword = () => {
     e?.preventDefault();
     setLoading(true);
     try {
-      await API.post("/auth/forgot-password/request", { email: email.trim(), role });
+      await API.post("/auth/forgot-password/request", { email: email.trim() });
       toast.success("Check your email", "We sent a 6-digit code if an account exists");
       setStep("code");
     } catch (err: any) {
@@ -61,7 +57,6 @@ const ForgotPassword = () => {
     try {
       await API.post("/auth/forgot-password/verify", {
         email: email.trim(),
-        role,
         code: digits,
       });
       toast.success("Code verified", "Choose your new password");
@@ -96,7 +91,6 @@ const ForgotPassword = () => {
     try {
       await API.post("/auth/forgot-password/reset", {
         email: email.trim(),
-        role,
         code: code.trim(),
         newPassword,
         confirmPassword,
@@ -111,11 +105,11 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#E8F4FD] p-4 font-sans flex items-center justify-center">
+    <div className="min-h-screen bg-[#E8F6EC] p-4 font-sans flex items-center justify-center">
       <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100">
         <div className="flex flex-col items-center mb-6 text-center">
-          <img src={logo} alt="SmartPOS" className="w-20 h-auto mb-3" draggable={false} />
-          <h1 className="text-xl font-bold text-[#0A1F44] flex items-center gap-2">
+          <img src={logo} alt="Slow Rise Co" className="w-20 h-auto mb-3" draggable={false} />
+          <h1 className="text-xl font-bold text-[#39B54A] flex items-center gap-2">
             <KeyRound size={20} /> Forgot Password
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -129,26 +123,7 @@ const ForgotPassword = () => {
         {step === "email" && (
           <form onSubmit={requestCode} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-[#0A1F44] ml-1 mb-1 block">Choose account type</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["parent", "student"] as ResetRole[]).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`py-2.5 rounded-xl text-sm font-semibold border transition ${
-                      role === r
-                        ? "bg-[#0A1F44] text-white border-[#0A1F44]"
-                        : "bg-gray-50 text-gray-600 border-gray-200"
-                    }`}
-                  >
-                    {r === "parent" ? "Parent" : "Student"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-[#0A1F44] ml-1 mb-1 block">Email address</label>
+              <label className="text-xs font-bold text-[#39B54A] ml-1 mb-1 block">Staff email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
@@ -156,15 +131,10 @@ const ForgotPassword = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="you@slowriseco.com"
                   className={`${inputCls} pl-9`}
                 />
               </div>
-              {role === "student" && (
-                <p className="text-[10px] text-gray-400 mt-1 ml-1">
-                  Use the email address saved on your student record.
-                </p>
-              )}
             </div>
             <button
               type="submit"
@@ -210,7 +180,7 @@ const ForgotPassword = () => {
                 setCode("");
                 void requestCode();
               }}
-              className="w-full text-xs text-gray-500 hover:text-[#0A1F44] disabled:opacity-50"
+              className="w-full text-xs text-gray-500 hover:text-[#39B54A] disabled:opacity-50"
             >
               {loading ? "Sending..." : "Resend code"}
             </button>
@@ -256,7 +226,7 @@ const ForgotPassword = () => {
             <p className="text-sm text-gray-600">You can now sign in with your new password.</p>
             <button
               type="button"
-              onClick={() => navigate(`/login?role=${role}`)}
+              onClick={() => navigate("/login")}
               style={{ backgroundColor: BRAND }}
               className="w-full py-3 text-sm font-bold rounded-xl text-white hover:opacity-90"
             >
@@ -266,7 +236,7 @@ const ForgotPassword = () => {
         )}
 
         <div className="mt-6 pt-4 border-t border-gray-100 text-center">
-          <Link to="/login" className="text-xs text-[#0A1F44] font-semibold inline-flex items-center gap-1 hover:underline">
+          <Link to="/login" className="text-xs text-[#39B54A] font-semibold inline-flex items-center gap-1 hover:underline">
             <ArrowLeft size={14} /> Back to login
           </Link>
         </div>

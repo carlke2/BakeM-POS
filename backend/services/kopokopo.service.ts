@@ -37,7 +37,7 @@ export const getAccessToken = async (): Promise<string> => {
     {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'SmartPOS/1.0',
+        'User-Agent': 'SlowRiseCo/1.0',
       },
       timeout: 12_000,
     },
@@ -62,9 +62,6 @@ export interface StkPushOptions {
   amount: number;
   description?: string;
   callbackUrl?: string;
-  studentId?: string;
-  studentRegNo?: string;
-  studentName?: string;
   purpose?: string;
   paymentId?: string;
 }
@@ -73,31 +70,17 @@ export interface StkPushResult {
   location: string;
 }
 
-/** Kopokopo allows at most 5 metadata keys — keep only what callbacks need. */
+/** Kopokopo allows at most 5 metadata keys — guest POS sale only. */
 function buildStkMetadata(opts: StkPushOptions): Record<string, string> {
-  const purpose = opts.purpose || (opts.studentId ? 'wallet_topup' : 'general');
-  const meta: Record<string, string> = {};
+  const purpose = opts.purpose || 'pos_sale';
+  const meta: Record<string, string> = {
+    purpose,
+    payer_type: 'guest',
+  };
 
   if (opts.paymentId) meta.payment_id = opts.paymentId;
-  meta.purpose = purpose;
 
-  if (opts.studentId) meta.student_id = opts.studentId;
-
-  if (opts.studentRegNo) {
-    meta.student_reg_no = opts.studentRegNo;
-  } else if (purpose === 'pos_sale' && !opts.studentId) {
-    meta.student_reg_no = 'GUEST';
-  }
-
-  if (Object.keys(meta).length < 5) {
-    if (purpose === 'pos_sale' && !opts.studentId) {
-      meta.student_name = opts.studentName || 'Guest';
-    } else if (opts.studentName && opts.studentId) {
-      meta.student_name = opts.studentName;
-    }
-  }
-
-  if (purpose === 'general' && opts.description && Object.keys(meta).length < 5) {
+  if (opts.description && Object.keys(meta).length < 5) {
     meta.description = opts.description.slice(0, 100);
   }
 
@@ -137,7 +120,7 @@ export const initiateSTKPush = async (opts: StkPushOptions): Promise<StkPushResu
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'User-Agent': 'SmartPOS/1.0',
+        'User-Agent': 'SlowRiseCo/1.0',
       },
       timeout: 20_000,
     },
@@ -171,7 +154,7 @@ export const getPaymentStatus = async (location: string): Promise<PaymentStatus>
   const response = await axios.get(location, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'User-Agent': 'SmartPOS/1.0',
+      'User-Agent': 'SlowRiseCo/1.0',
     },
     timeout: 12_000,
   });
@@ -184,14 +167,11 @@ export const getPaymentStatus = async (location: string): Promise<PaymentStatus>
       : {};
 
   const amountRaw = resource.amount ?? attrs.amount?.value ?? attrs.amount ?? 0;
-  // Incoming Payment lifecycle lives on attributes.status (Pending | Success | Failed).
-  // resource.status ("Received") only appears after the customer completes M-Pesa.
   const mpesaRef = String(resource.reference || '').trim();
   const attrsStatus = String(attrs.status || '').trim();
   const resourceStatus = String(resource.status || '').trim();
 
   let status = attrsStatus || resourceStatus || 'Pending';
-  // Never treat as paid without an M-Pesa receipt — avoids "success" before PIN.
   if (!mpesaRef) {
     const s = status.toLowerCase();
     if (s === 'success' || s === 'received' || s === 'complete' || s === 'completed' || s === 'paid') {
@@ -203,7 +183,6 @@ export const getPaymentStatus = async (location: string): Promise<PaymentStatus>
     status,
     amount: Number(amountRaw) || 0,
     currency: resource.currency ?? attrs.amount?.currency ?? 'KES',
-    // Prefer M-Pesa receipt; do not fall back to Kopokopo payment UUID (that looked "paid" early)
     reference: mpesaRef || '',
     originationTime: resource.origination_time ?? attrs.origination_time ?? attrs.initiation_time,
     phone: resource.sender_phone_number ?? attrs.sender_phone_number ?? '',
@@ -228,7 +207,7 @@ export const subscribeWebhook = async (eventType: string, url: string): Promise<
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'User-Agent': 'SmartPOS/1.0',
+        'User-Agent': 'SlowRiseCo/1.0',
       },
     },
   );

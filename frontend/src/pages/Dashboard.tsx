@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Users,
-  GraduationCap,
   UtensilsCrossed,
   DollarSign,
   AlertCircle,
@@ -15,7 +14,7 @@ import API from "@/services/api";
 import Loader from "@/components/ui/loader";
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
 
-const COLORS = ["#0A1F44", "#1E3A8A", "#3B82F6", "#10B981"];
+const COLORS = ["#39B54A", "#148A32", "#0F6E28", "#7DCEA0"];
 
 type CollectionRow = {
   id?: string;
@@ -42,24 +41,12 @@ type CollectionsSummary = {
   recordCount: number;
 };
 
-type FinanceFilter =
-  | "all"
-  | "till"
-  | "stk"
-  | "student_wallets"
-  | "wallet_topup"
-  | "wallet_usage"
-  | "cash"
-  | "unallocated";
+type FinanceFilter = "all" | "till" | "stk" | "cash";
 
 const FINANCE_FILTERS: { value: FinanceFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "till", label: "Till (Buy Goods)" },
   { value: "stk", label: "STK Push" },
-  { value: "student_wallets", label: "Student wallets" },
-  { value: "wallet_topup", label: "Wallet top-ups" },
-  { value: "wallet_usage", label: "Wallet usage" },
-  { value: "unallocated", label: "Unallocated till" },
   { value: "cash", label: "Cash" },
 ];
 
@@ -100,16 +87,9 @@ const matchesFinanceFilter = (row: CollectionRow, filter: FinanceFilter): boolea
     return (
       rowChannel(row) === "stk" ||
       row.source === "pos_mpesa" ||
-      (row.source === "kopo" && row.type === "pos_sale") ||
-      (row.source === "kopo" &&
-        row.type === "wallet_topup" &&
-        !/till → student wallet|manual allocation/i.test(`${row.method} ${row.metadata}`))
+      (row.source === "kopo" && row.type === "pos_sale")
     );
   }
-  if (filter === "student_wallets") return isWalletTopUp(row) || isWalletUsage(row);
-  if (filter === "wallet_topup") return isWalletTopUp(row);
-  if (filter === "wallet_usage") return isWalletUsage(row);
-  if (filter === "unallocated") return Boolean(row.allocatable);
   if (filter === "cash") return row.source === "pos_cash" || rowChannel(row) === "cash";
   return true;
 };
@@ -118,7 +98,7 @@ const DashboardCard = ({
   title,
   value,
   icon,
-  color = "#0A1F44",
+  color = "#39B54A",
   prefix = "",
 }: {
   title: string;
@@ -151,7 +131,7 @@ const DashboardCard = ({
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-sm text-gray-500 font-medium">{title}</h3>
-          <p className="text-3xl font-bold text-[#0A1F44] mt-2">
+          <p className="text-3xl font-bold text-[#39B54A] mt-2">
             {prefix}
             {count.toLocaleString()}
           </p>
@@ -165,7 +145,6 @@ const DashboardCard = ({
 };
 
 const Dashboard = () => {
-  const [studentCount, setStudentCount] = useState(0);
   const [staffCount, setStaffCount] = useState(0);
   const [revenue, setRevenue] = useState(0);
   const [menuCount, setMenuCount] = useState(0);
@@ -182,12 +161,10 @@ const Dashboard = () => {
     const fetchCounts = async () => {
       setLoadError(null);
       try {
-        const [studentsRes, usersRes, menuRes] = await Promise.all([
-          API.get("/students"),
+        const [usersRes, menuRes] = await Promise.all([
           API.get("/users"),
           API.get("/menu"),
         ]);
-        setStudentCount(studentsRes.data?.length || 0);
         setStaffCount(usersRes.data?.length || 0);
         setMenuCount(menuRes.data?.length || 0);
         try {
@@ -289,8 +266,7 @@ const Dashboard = () => {
   }, [financeFilter, filteredRows, collectionRows, serverSummary, startDate, endDate]);
 
   const data = [
-    { name: "Students", value: studentCount },
-    { name: "Staff Users", value: staffCount },
+    { name: "Staff", value: staffCount },
     { name: "Menu Items", value: menuCount },
   ];
   const chartTotal = data.reduce((sum, item) => sum + item.value, 0);
@@ -302,13 +278,13 @@ const Dashboard = () => {
       : `/collections?source=${encodeURIComponent(financeFilter)}`;
 
   return (
-    <div className="p-4 md:p-8 space-y-8 bg-[#E8F4FD] min-h-screen font-sans">
-      <div className="bg-[#0A1F44] text-white rounded-3xl shadow-xl p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between relative overflow-hidden">
+    <div className="p-4 md:p-8 space-y-8 bg-[#E8F6EC] min-h-screen font-sans">
+      <div className="bg-[#39B54A] text-white rounded-3xl shadow-xl p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between relative overflow-hidden">
         <div className="relative z-10">
-          <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
-          <p className="text-sm text-blue-200 mt-2 font-medium">School feeding program overview</p>
+          <h2 className="text-3xl font-bold tracking-tight">Owner Dashboard</h2>
+          <p className="text-sm text-white/80 mt-2 font-medium">Slow Rise Co bakery overview</p>
         </div>
-        <div className="mt-6 sm:mt-0 w-14 h-14 rounded-full bg-white text-[#0A1F44] flex items-center justify-center font-bold text-xl">
+        <div className="mt-6 sm:mt-0 w-14 h-14 rounded-full bg-white text-[#39B54A] flex items-center justify-center font-bold text-xl">
           AD
         </div>
       </div>
@@ -324,14 +300,13 @@ const Dashboard = () => {
         <Loader size="sm" title="Loading dashboard..." subtitle="Fetching platform statistics" className="py-8" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <DashboardCard title="Students" value={studentCount} icon={<GraduationCap size={24} />} color="#0A1F44" />
-          <DashboardCard title="Staff Users" value={staffCount} icon={<Users size={24} />} color="#0A1F44" />
-          <DashboardCard title="Menu Items" value={menuCount} icon={<UtensilsCrossed size={24} />} color="#0A1F44" />
+          <DashboardCard title="Staff" value={staffCount} icon={<Users size={24} />} color="#39B54A" />
+          <DashboardCard title="Menu Items" value={menuCount} icon={<UtensilsCrossed size={24} />} color="#39B54A" />
           <DashboardCard
-            title="Cafeteria Revenue"
+            title="Sales"
             value={revenue}
             icon={<DollarSign size={24} />}
-            color="#0A1F44"
+            color="#39B54A"
             prefix="KES "
           />
         </div>
@@ -340,16 +315,16 @@ const Dashboard = () => {
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="text-xl font-bold text-[#0A1F44] flex items-center gap-2">
+            <h3 className="text-xl font-bold text-[#39B54A] flex items-center gap-2">
               <Filter size={18} /> Collections overview
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              Filter till, STK push, and student wallet activity
+              Filter till, M-Pesa STK, and cash sales
             </p>
           </div>
           <Link
             to={collectionsPath}
-            className="text-sm font-semibold text-[#0A1F44] hover:underline"
+            className="text-sm font-semibold text-[#39B54A] hover:underline"
           >
             Open full collections →
           </Link>
@@ -369,12 +344,12 @@ const Dashboard = () => {
                 onClick={() => setFinanceFilter(opt.value)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                   active
-                    ? "bg-[#0A1F44] text-white border-[#0A1F44]"
-                    : "bg-white text-[#0A1F44] border-gray-200 hover:border-[#0A1F44]/40"
+                    ? "bg-[#39B54A] text-white border-[#39B54A]"
+                    : "bg-white text-[#39B54A] border-gray-200 hover:border-[#39B54A]/40"
                 }`}
               >
                 {opt.label}
-                <span className={`ml-1 ${active ? "text-blue-200" : "text-gray-400"}`}>({count})</span>
+                <span className={`ml-1 ${active ? "text-white/80" : "text-gray-400"}`}>({count})</span>
               </button>
             );
           })}
@@ -385,20 +360,20 @@ const Dashboard = () => {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0A1F44] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
             title="From date"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0A1F44] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
             title="To date"
           />
         </div>
 
         {financeLoading ? (
-          <Loader size="sm" title="Loading collections..." subtitle="Fetching till and wallet totals" className="py-6" />
+          <Loader size="sm" title="Loading collections..." subtitle="Fetching till and cash totals" className="py-6" />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
@@ -407,23 +382,17 @@ const Dashboard = () => {
               </div>
               <p className="text-2xl font-bold text-emerald-900 mt-2">{formatKes(financeTotals.till)}</p>
             </div>
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-              <div className="flex items-center gap-2 text-indigo-800 text-sm font-semibold">
+            <div className="rounded-2xl border border-[#D4F0DB] bg-[#E8F6EC]/60 p-4">
+              <div className="flex items-center gap-2 text-[#0F6E28] text-sm font-semibold">
                 <Smartphone size={16} /> STK Push
               </div>
-              <p className="text-2xl font-bold text-indigo-900 mt-2">{formatKes(financeTotals.stk)}</p>
+              <p className="text-2xl font-bold text-[#0B4F1E] mt-2">{formatKes(financeTotals.stk)}</p>
             </div>
-            <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
-              <div className="flex items-center gap-2 text-sky-800 text-sm font-semibold">
-                <Wallet size={16} /> Wallet top-ups
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+              <div className="flex items-center gap-2 text-emerald-800 text-sm font-semibold">
+                <Wallet size={16} /> Cash sales
               </div>
-              <p className="text-2xl font-bold text-sky-900 mt-2">{formatKes(financeTotals.walletTopUps)}</p>
-            </div>
-            <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
-              <div className="flex items-center gap-2 text-rose-800 text-sm font-semibold">
-                <Wallet size={16} /> Wallet usage
-              </div>
-              <p className="text-2xl font-bold text-rose-900 mt-2">{formatKes(financeTotals.usage)}</p>
+              <p className="text-2xl font-bold text-emerald-900 mt-2">{formatKes(financeTotals.cash)}</p>
             </div>
           </div>
         )}
@@ -436,7 +405,7 @@ const Dashboard = () => {
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-        <h3 className="text-xl font-bold text-[#0A1F44] mb-6">Platform Statistics</h3>
+        <h3 className="text-xl font-bold text-[#39B54A] mb-6">Platform Statistics</h3>
         {showChart ? (
           <div className="w-full min-w-0" style={{ height: 350 }}>
             <ResponsiveContainer width="100%" height={350} minWidth={0}>
@@ -461,7 +430,7 @@ const Dashboard = () => {
       </div>
 
       <p className="text-center text-xs text-gray-500">
-        © {new Date().getFullYear()} SmartPOS School Feeding System
+        © {new Date().getFullYear()} Slow Rise Co
       </p>
     </div>
   );

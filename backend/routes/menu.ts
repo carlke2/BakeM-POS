@@ -16,7 +16,7 @@ function devErrorDetail(error: unknown): string | undefined {
 const router = Router();
 
 function canManageMenu(role: string | undefined): boolean {
-  return !!role && ['admin', 'restaurant'].includes(role);
+  return role === 'owner';
 }
 
 const upload = multer({
@@ -55,6 +55,8 @@ router.get('/display', async (_req: Request, res: Response): Promise<any> => {
         isAvailable: true,
         stockLevel: true,
         batchYield: true,
+        unitType: true,
+        bestBeforeHours: true,
       },
     });
     const visible = items.filter(isMenuItemVisible);
@@ -251,7 +253,7 @@ router.post(
   },
   async (req: Request, res: Response): Promise<any> => {
     try {
-      if (!['admin', 'restaurant'].includes(req.user!.role)) {
+      if (!['owner'].includes(req.user!.role)) {
         return res.status(403).json({ message: 'Not authorized' });
       }
       if (!req.file) {
@@ -320,7 +322,7 @@ router.post(
 
 // ─── GET /api/menu/kitchen-board ──────────────────────────────────────────────
 router.get('/kitchen-board', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant', 'finance'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -335,7 +337,7 @@ router.get('/kitchen-board', ensureAuthenticated, async (req: Request, res: Resp
 
 // ─── GET /api/menu/production-batches ───────────────────────────────────────
 router.get('/production-batches', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant', 'finance'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -438,7 +440,7 @@ router.get('/', ensureAuthenticated, async (req: Request, res: Response): Promis
       return item.stockLevel === null || item.stockLevel > 0;
     });
 
-    if (!['admin', 'restaurant', 'finance'].includes(req.user?.role ?? '')) {
+    if (!['owner'].includes(req.user?.role ?? '')) {
       return res.json(visibleItems);
     }
 
@@ -471,7 +473,7 @@ router.get('/', ensureAuthenticated, async (req: Request, res: Response): Promis
 // ─── GET /api/menu/all ────────────────────────────────────────────────────────
 // Admin/Restaurant staff view including unavailable items
 router.get('/all', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
   try {
@@ -497,14 +499,29 @@ router.get('/all', ensureAuthenticated, async (req: Request, res: Response): Pro
 
 // ─── POST /api/menu ───────────────────────────────────────────────────────────
 router.post('/', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
-  const { name, description, price, category, imageUrl, isAvailable, stockLevel, batchYield } = req.body;
+  const {
+    name,
+    description,
+    price,
+    category,
+    imageUrl,
+    isAvailable,
+    stockLevel,
+    batchYield,
+    unitType,
+    bestBeforeHours,
+  } = req.body;
   if (!name || !price || !category) {
     return res.status(422).json({ message: 'Name, price, and category are required' });
   }
+
+  const allowedUnits = ['piece', 'loaf', 'kg', 'dozen'];
+  const parsedUnitType =
+    unitType && allowedUnits.includes(String(unitType)) ? String(unitType) : 'piece';
 
   const parsedStock =
     stockLevel === undefined || stockLevel === null || stockLevel === ''
@@ -515,6 +532,11 @@ router.post('/', ensureAuthenticated, async (req: Request, res: Response): Promi
     batchYield === undefined || batchYield === null || batchYield === ''
       ? null
       : Math.max(1, Math.floor(Number(batchYield)));
+
+  const parsedBestBefore =
+    bestBeforeHours === undefined || bestBeforeHours === null || bestBeforeHours === ''
+      ? null
+      : Math.max(0, Math.floor(Number(bestBeforeHours)));
 
   try {
     const item = await prisma.menuItem.create({
@@ -527,6 +549,8 @@ router.post('/', ensureAuthenticated, async (req: Request, res: Response): Promi
         isAvailable: isAvailable ?? true,
         stockLevel: parsedStock,
         batchYield: parsedBatchYield,
+        unitType: parsedUnitType,
+        bestBeforeHours: parsedBestBefore,
       },
     });
 
@@ -548,7 +572,7 @@ router.post('/', ensureAuthenticated, async (req: Request, res: Response): Promi
 
 // ─── GET /api/menu/:id/ingredients ────────────────────────────────────────────
 router.get('/:id/ingredients', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
   try {
@@ -567,7 +591,7 @@ router.get('/:id/ingredients', ensureAuthenticated, async (req: Request, res: Re
 
 // ─── PUT /api/menu/:id/ingredients ────────────────────────────────────────────
 router.put('/:id/ingredients', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -626,11 +650,22 @@ router.put('/:id/ingredients', ensureAuthenticated, async (req: Request, res: Re
 
 // ─── PUT /api/menu/:id ────────────────────────────────────────────────────────
 router.put('/:id', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
-  const { name, description, price, category, imageUrl, isAvailable, stockLevel, batchYield } = req.body;
+  const {
+    name,
+    description,
+    price,
+    category,
+    imageUrl,
+    isAvailable,
+    stockLevel,
+    batchYield,
+    unitType,
+    bestBeforeHours,
+  } = req.body;
 
   try {
     const data: any = {};
@@ -640,6 +675,19 @@ router.put('/:id', ensureAuthenticated, async (req: Request, res: Response): Pro
     if (category) data.category = category;
     if (imageUrl !== undefined) data.imageUrl = imageUrl;
     if (isAvailable !== undefined) data.isAvailable = isAvailable;
+    if (unitType !== undefined) {
+      const allowedUnits = ['piece', 'loaf', 'kg', 'dozen'];
+      if (!allowedUnits.includes(String(unitType))) {
+        return res.status(422).json({ message: 'unitType must be piece, loaf, kg, or dozen' });
+      }
+      data.unitType = String(unitType);
+    }
+    if (bestBeforeHours !== undefined) {
+      data.bestBeforeHours =
+        bestBeforeHours === null || bestBeforeHours === ''
+          ? null
+          : Math.max(0, Math.floor(Number(bestBeforeHours)));
+    }
     if (stockLevel !== undefined) {
       data.stockLevel =
         stockLevel === null || stockLevel === ''
@@ -674,7 +722,7 @@ router.put('/:id', ensureAuthenticated, async (req: Request, res: Response): Pro
 
 // ─── DELETE /api/menu/:id ─────────────────────────────────────────────────────
 router.delete('/:id', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 

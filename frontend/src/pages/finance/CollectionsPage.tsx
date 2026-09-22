@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Receipt, FileJson, X, Copy, Check, Search, Filter, Wallet, UserPlus, AlertTriangle, ClipboardPlus } from "lucide-react";
+import { Receipt, FileJson, X, Copy, Check, Search, Filter, Wallet, AlertTriangle, ClipboardPlus } from "lucide-react";
 import API from "@/services/api";
 import Loader from "@/components/ui/loader";
 import { toast } from "@/services/toast";
-import StudentPicker, { type StudentOption } from "@/components/StudentPicker";
-import WalletAdjustModal from "@/components/WalletAdjustModal";
 
 type CollectionRow = {
   id?: string;
@@ -67,9 +65,6 @@ type SourceFilter =
   | "all"
   | "till"
   | "stk"
-  | "student_wallets"
-  | "wallet_topup"
-  | "wallet_usage"
   | "guest"
   | "cash"
   | "unallocated";
@@ -77,12 +72,8 @@ type SourceFilter =
 const SOURCE_FILTERS: { value: SourceFilter; label: string; hint: string }[] = [
   { value: "all", label: "All", hint: "Every collection record" },
   { value: "till", label: "Till (Buy Goods)", hint: "Lipa na M-Pesa till payments" },
-  { value: "stk", label: "STK Push", hint: "Parent/guest STK payments" },
-  { value: "student_wallets", label: "Student wallets", hint: "Top-ups and cafeteria usage" },
-  { value: "wallet_topup", label: "Wallet top-ups", hint: "Money added to student wallets" },
-  { value: "wallet_usage", label: "Wallet usage", hint: "Cafeteria purchases from wallets" },
-  { value: "unallocated", label: "Unallocated till", hint: "Till money not yet assigned" },
-  { value: "guest", label: "Guest POS", hint: "Guest M-Pesa & cash sales" },
+  { value: "stk", label: "STK Push", hint: "M-Pesa STK payments at the till" },
+  { value: "guest", label: "Guest POS", hint: "Guest M-Pesa and cash sales" },
   { value: "cash", label: "Cash only", hint: "Guest cash POS" },
 ];
 
@@ -137,9 +128,6 @@ const matchesSource = (row: CollectionRow, source: SourceFilter): boolean => {
   if (source === "all") return true;
   if (source === "till") return isTillBuyGoodsRow(row);
   if (source === "stk") return isStkPushRow(row);
-  if (source === "student_wallets") return isWalletTopUpRow(row) || isWalletUsageRow(row);
-  if (source === "wallet_topup") return isWalletTopUpRow(row);
-  if (source === "wallet_usage") return isWalletUsageRow(row);
   if (source === "unallocated") return Boolean(row.allocatable);
   if (source === "cash") return row.source === "pos_cash";
   if (source === "guest") return isGuestPosRow(row);
@@ -151,7 +139,7 @@ const channelBadge = (channel: string) => {
     case "till":
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
     case "stk":
-      return "bg-indigo-50 text-indigo-700 border-indigo-100";
+      return "bg-[#E8F6EC] text-[#0F6E28] border-[#D4F0DB]";
     case "wallet":
       return "bg-sky-50 text-sky-700 border-sky-100";
     case "cash":
@@ -224,7 +212,7 @@ const PayloadModal = ({
       <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <div>
-            <h3 className="font-bold text-[#0A1F44] flex items-center gap-2">
+            <h3 className="font-bold text-[#39B54A] flex items-center gap-2">
               <FileJson size={18} /> Transaction payloads
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -245,7 +233,7 @@ const PayloadModal = ({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search name, adm no, ref..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0A1F44] outline-none"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
                 />
               </div>
             </div>
@@ -259,10 +247,10 @@ const PayloadModal = ({
                     type="button"
                     onClick={() => r.id && onSelect(r.id)}
                     className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition ${
-                      selected?.id === r.id ? "bg-[#E8F4FD] border-l-4 border-l-[#0A1F44]" : ""
+                      selected?.id === r.id ? "bg-[#E8F6EC] border-l-4 border-l-[#39B54A]" : ""
                     }`}
                   >
-                    <p className="font-semibold text-sm text-[#0A1F44] truncate">
+                    <p className="font-semibold text-sm text-[#39B54A] truncate">
                       {r.name || r.method || "Transaction"}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
@@ -281,7 +269,7 @@ const PayloadModal = ({
           <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {selected && (
               <div className="px-4 py-2 border-b border-gray-50 bg-gray-50/80 text-xs text-gray-600 shrink-0">
-                <span className="font-semibold text-[#0A1F44]">{selected.name || "—"}</span>
+                <span className="font-semibold text-[#39B54A]">{selected.name || "—"}</span>
                 {selected.admNo && <span> · {selected.admNo}</span>}
                 <span> · {selected.method}</span>
               </div>
@@ -293,7 +281,7 @@ const PayloadModal = ({
               <button
                 type="button"
                 onClick={copyJson}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#0A1F44] border border-[#0A1F44]/20 rounded-lg hover:bg-[#0A1F44]/5"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#39B54A] border border-[#39B54A]/20 rounded-lg hover:bg-[#39B54A]/5"
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
                 {copied ? "Copied" : "Copy JSON"}
@@ -307,101 +295,11 @@ const PayloadModal = ({
 };
 
 
-const AllocateModal = ({
-  payment,
-  onClose,
-  onSuccess,
-}: {
-  payment: { id: string; amount: number; transactionRef?: string; mpesaNumber?: string; date?: string };
-  onClose: () => void;
-  onSuccess: () => void;
-}) => {
-  const [student, setStudent] = useState<StudentOption | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleAllocate = async () => {
-    if (!student) {
-      toast.warning("Select a student", "Search and pick the student to top up");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const { data } = await API.post(`/kopokopo/${payment.id}/allocate`, { studentId: student.id });
-      toast.success(
-        "Wallet topped up",
-        `${data.studentName} (${data.studentRegNo}) · ${formatKes(data.amount)} · New balance ${formatKes(data.newBalance)}`,
-      );
-      onSuccess();
-      onClose();
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        "Allocation failed";
-      toast.error("Could not allocate", msg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="font-bold text-[#0A1F44] flex items-center gap-2">
-              <UserPlus size={18} /> Allocate to student
-            </h3>
-            <p className="text-xs text-gray-500 mt-0.5">Credit this till payment to a student wallet</p>
-          </div>
-          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="p-3 bg-slate-50 rounded-xl text-sm space-y-1">
-            <p className="font-bold text-emerald-600 text-lg">{formatKes(payment.amount)}</p>
-            {payment.transactionRef && (
-              <p className="text-xs font-mono text-gray-600">M-Pesa: {payment.transactionRef}</p>
-            )}
-            {payment.mpesaNumber && <p className="text-xs text-gray-500">Phone: {payment.mpesaNumber}</p>}
-            {payment.date && (
-              <p className="text-xs text-gray-500">{new Date(payment.date).toLocaleString()}</p>
-            )}
-          </div>
-
-          <StudentPicker selected={student} onSelect={setStudent} onClear={() => setStudent(null)} />
-
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 text-sm font-semibold border border-gray-200 rounded-xl hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleAllocate}
-              disabled={!student || submitting}
-              className="flex-1 py-2.5 text-sm font-semibold bg-[#0A1F44] text-white rounded-xl hover:bg-[#0A1F44]/90 disabled:opacity-50"
-            >
-              {submitting ? "Topping up..." : "Top up wallet"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const FindPaymentModal = ({
   onClose,
-  onAllocate,
   onRegister,
 }: {
   onClose: () => void;
-  onAllocate: (payment: KopoSearchResult) => void;
   onRegister: (prefill?: { code?: string; amount?: string }) => void;
 }) => {
   const [query, setQuery] = useState("");
@@ -434,7 +332,7 @@ const FindPaymentModal = ({
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h3 className="font-bold text-[#0A1F44] flex items-center gap-2">
+            <h3 className="font-bold text-[#39B54A] flex items-center gap-2">
               <Search size={18} /> Find M-Pesa payment
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">Search by M-Pesa code, phone, or reference</p>
@@ -452,7 +350,7 @@ const FindPaymentModal = ({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. QGH7XABCD or 2547..."
               autoFocus
-              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0A1F44] outline-none"
+              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
             />
           </div>
 
@@ -466,7 +364,7 @@ const FindPaymentModal = ({
                 </p>
                 <p className="text-xs text-gray-400 px-4">
                   Manual till payments only appear automatically when KopoKopo webhooks reach your server.
-                  Register it from the M-Pesa SMS, then allocate to a student.
+                  Register it from the M-Pesa SMS so it shows in collections.
                 </p>
                 <button
                   type="button"
@@ -478,16 +376,13 @@ const FindPaymentModal = ({
               </div>
             )}
             {results.map((r) => (
-              <button
+              <div
                 key={r.id}
-                type="button"
-                disabled={!r.allocatable}
-                onClick={() => onAllocate(r)}
-                className="w-full text-left p-3 border border-gray-100 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full text-left p-3 border border-gray-100 rounded-xl"
               >
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <p className="font-semibold text-[#0A1F44]">{formatKes(r.amount)}</p>
+                    <p className="font-semibold text-[#39B54A]">{formatKes(r.amount)}</p>
                     <p className="text-xs font-mono text-gray-500">{r.transactionReference || r.id}</p>
                     <p className="text-xs text-gray-400">{r.phone || "—"} · {new Date(r.date).toLocaleString()}</p>
                   </div>
@@ -495,7 +390,7 @@ const FindPaymentModal = ({
                     {r.allocatable ? "unallocated" : r.status}
                   </span>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -558,7 +453,7 @@ const RegisterManualModal = ({
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h3 className="font-bold text-[#0A1F44] flex items-center gap-2">
+            <h3 className="font-bold text-[#39B54A] flex items-center gap-2">
               <ClipboardPlus size={18} /> Register till payment
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -582,7 +477,7 @@ const RegisterManualModal = ({
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. UG7QOA5LRC"
-              className="mt-1 w-full px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0A1F44] outline-none"
+              className="mt-1 w-full px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
             />
           </div>
 
@@ -594,7 +489,7 @@ const RegisterManualModal = ({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="e.g. 1"
-              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0A1F44] outline-none"
+              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
             />
           </div>
 
@@ -604,7 +499,7 @@ const RegisterManualModal = ({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Parent M-Pesa number"
-              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0A1F44] outline-none"
+              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
             />
           </div>
 
@@ -620,7 +515,7 @@ const RegisterManualModal = ({
               type="button"
               onClick={handleRegister}
               disabled={submitting}
-              className="flex-1 py-2.5 text-sm font-semibold bg-[#0A1F44] text-white rounded-xl hover:bg-[#0A1F44]/90 disabled:opacity-50"
+              className="flex-1 py-2.5 text-sm font-semibold bg-[#39B54A] text-white rounded-xl hover:bg-[#39B54A]/90 disabled:opacity-50"
             >
               {submitting ? "Registering..." : "Register payment"}
             </button>
@@ -644,15 +539,7 @@ const CollectionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [payloadOpen, setPayloadOpen] = useState(false);
   const [selectedPayloadId, setSelectedPayloadId] = useState<string | null>(null);
-  const [allocatePayment, setAllocatePayment] = useState<{
-    id: string;
-    amount: number;
-    transactionRef?: string;
-    mpesaNumber?: string;
-    date?: string;
-  } | null>(null);
   const [findPaymentOpen, setFindPaymentOpen] = useState(false);
-  const [walletAdjustOpen, setWalletAdjustOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerPrefill, setRegisterPrefill] = useState<{ code?: string; amount?: string }>();
   const [webhookStatus, setWebhookStatus] = useState<{
@@ -725,13 +612,8 @@ const CollectionsPage = () => {
     setFindPaymentOpen(false);
   };
 
-  const handleRegistered = (payment: { id: string; amount: number; transactionReference: string }) => {
+  const handleRegistered = (_payment: { id: string; amount: number; transactionReference: string }) => {
     fetchRows();
-    setAllocatePayment({
-      id: payment.id,
-      amount: payment.amount,
-      transactionRef: payment.transactionReference,
-    });
   };
 
   const filteredRows = useMemo(() => {
@@ -772,28 +654,6 @@ const CollectionsPage = () => {
       status: "all",
       startDate: "",
       endDate: "",
-    });
-  };
-
-  const openAllocate = (row: CollectionRow) => {
-    if (!row.id || !row.allocatable) return;
-    setAllocatePayment({
-      id: row.id,
-      amount: row.amount || row.attemptedAmount || 0,
-      transactionRef: row.transactionRef,
-      mpesaNumber: row.mpesaNumber,
-      date: row.date,
-    });
-  };
-
-  const handleFindPaymentAllocate = (payment: KopoSearchResult) => {
-    setFindPaymentOpen(false);
-    setAllocatePayment({
-      id: payment.id,
-      amount: payment.amount,
-      transactionRef: payment.transactionReference,
-      mpesaNumber: payment.phone,
-      date: payment.date,
     });
   };
 
@@ -844,7 +704,7 @@ const CollectionsPage = () => {
   }, [filteredRows, hasActiveFilters, serverSummary]);
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F4FD] min-h-screen font-sans space-y-6">
+    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
       {webhookStatus && (webhookStatus.webhookLikelyStale || webhookStatus.paymentsToday === 0) && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
           <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
@@ -855,18 +715,18 @@ const CollectionsPage = () => {
               {webhookStatus.hoursSinceLastPayment != null
                 ? ` Last recorded payment was ${webhookStatus.hoursSinceLastPayment}h ago.`
                 : " No payments recorded yet."}
-              {" "}Use <strong>Register till payment</strong> with the M-Pesa code from the SMS, then allocate to the student.
+              {" "}Use <strong>Register till payment</strong> with the M-Pesa code from the SMS.
             </p>
           </div>
         </div>
       )}
 
-      <div className="bg-[#0A1F44] text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-[#39B54A] text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Receipt /> Collections Report
           </h2>
-          <p className="text-blue-200 text-sm mt-1">
+          <p className="text-white/80 text-sm mt-1">
             Till M-Pesa, guest cash & STK POS, wallet top-ups, and wallet cafeteria usage
           </p>
         </div>
@@ -896,13 +756,6 @@ const CollectionsPage = () => {
             </button>
             <button
               type="button"
-              onClick={() => setWalletAdjustOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-semibold"
-            >
-              <Wallet size={16} /> Update wallet
-            </button>
-            <button
-              type="button"
               onClick={() => openPayloads()}
               disabled={filteredRows.length === 0}
               className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-semibold disabled:opacity-40"
@@ -911,7 +764,7 @@ const CollectionsPage = () => {
             </button>
           </div>
           <div className="text-right space-y-1">
-            <p className="text-blue-200 text-xs">
+            <p className="text-white/80 text-xs">
               Till inflow (unique) / Wallet top-ups / Cash POS / Wallet usage · Records
               {hasActiveFilters && filteredRows.length !== rows.length ? (
                 <span className="ml-1">({filteredRows.length} shown)</span>
@@ -921,19 +774,19 @@ const CollectionsPage = () => {
               <span className="text-emerald-300" title="Unique M-Pesa till receipts">
                 {formatKes(totals.topUps)}
               </span>
-              <span className="text-blue-200"> · </span>
+              <span className="text-white/80"> · </span>
               <span className="text-sky-300" title="Allocated / manual wallet top-ups">
                 {formatKes(totals.walletTopUps)}
               </span>
-              <span className="text-blue-200"> · </span>
+              <span className="text-white/80"> · </span>
               <span className="text-amber-300" title="Guest cash POS">
                 {formatKes(totals.cashSales)}
               </span>
-              <span className="text-blue-200"> · </span>
+              <span className="text-white/80"> · </span>
               <span className="text-rose-300" title="Wallet cafeteria purchases">
                 {formatKes(totals.usage)}
               </span>
-              <span className="text-blue-200"> · </span>
+              <span className="text-white/80"> · </span>
               <span className="text-white">{filteredRows.length}</span>
             </p>
           </div>
@@ -943,14 +796,14 @@ const CollectionsPage = () => {
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Filter size={18} className="text-[#0A1F44]" />
-            <span className="font-semibold text-[#0A1F44]">Filters</span>
+            <Filter size={18} className="text-[#39B54A]" />
+            <span className="font-semibold text-[#39B54A]">Filters</span>
           </div>
           {hasActiveFilters && (
             <button
               type="button"
               onClick={clearFilters}
-              className="text-xs font-semibold text-gray-500 hover:text-[#0A1F44]"
+              className="text-xs font-semibold text-gray-500 hover:text-[#39B54A]"
             >
               Clear all
             </button>
@@ -971,12 +824,12 @@ const CollectionsPage = () => {
                 onClick={() => setFilters((f) => ({ ...f, source: opt.value }))}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                   active
-                    ? "bg-[#0A1F44] text-white border-[#0A1F44]"
-                    : "bg-white text-[#0A1F44] border-gray-200 hover:border-[#0A1F44]/40"
+                    ? "bg-[#39B54A] text-white border-[#39B54A]"
+                    : "bg-white text-[#39B54A] border-gray-200 hover:border-[#39B54A]/40"
                 }`}
               >
                 {opt.label}
-                <span className={`ml-1 ${active ? "text-blue-200" : "text-gray-400"}`}>
+                <span className={`ml-1 ${active ? "text-white/80" : "text-gray-400"}`}>
                   ({count})
                 </span>
               </button>
@@ -991,13 +844,13 @@ const CollectionsPage = () => {
               value={filters.search}
               onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
               placeholder="Search name, adm no, ref, phone..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0A1F44] outline-none"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
             />
           </div>
           <select
             value={filters.status}
             onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as StatusFilter }))}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0A1F44] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
           >
             <option value="all">All statuses</option>
             <option value="success">Success</option>
@@ -1008,14 +861,14 @@ const CollectionsPage = () => {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0A1F44] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
             title="From date"
           />
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#0A1F44] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
             title="To date"
           />
         </div>
@@ -1036,7 +889,7 @@ const CollectionsPage = () => {
       ) : filteredRows.length === 0 ? (
         <div className="bg-white rounded-2xl p-8 text-center text-gray-500">
           No records match your filters.{" "}
-          <button type="button" onClick={clearFilters} className="text-[#0A1F44] font-semibold hover:underline">
+          <button type="button" onClick={clearFilters} className="text-[#39B54A] font-semibold hover:underline">
             Clear filters
           </button>
         </div>
@@ -1068,7 +921,7 @@ const CollectionsPage = () => {
                 return (
                   <tr key={`${r.id || r.transactionRef || r.date}-${idx}`} className="border-t border-gray-100 align-top">
                     <td className="py-3 px-4 text-gray-500">{idx + 1}</td>
-                    <td className="py-3 px-4 font-semibold text-[#0A1F44]">{r.name || "-"}</td>
+                    <td className="py-3 px-4 font-semibold text-[#39B54A]">{r.name || "-"}</td>
                     <td className="py-3 px-4 text-gray-600 font-mono text-xs">{r.admNo || "-"}</td>
                     <td className="py-3 px-4">{r.mpesaNumber || "-"}</td>
                     <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
@@ -1112,29 +965,14 @@ const CollectionsPage = () => {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      {r.allocatable ? (
-                        <button
-                          type="button"
-                          onClick={() => openAllocate(r)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
-                        >
-                          <UserPlus size={14} />
-                          Allocate
-                        </button>
-                      ) : r.walletCredited && isWalletTopUpRow(r) ? (
-                        <span className="text-[10px] text-emerald-600 font-semibold">Credited</span>
-                      ) : (
-                        <span className="text-[10px] text-gray-300">—</span>
-                      )}
-                    </td>
+                    <td className="py-3 px-4 text-center text-gray-300">—</td>
                     <td className="py-3 px-4 text-center">
                       <button
                         type="button"
                         onClick={() => r.id && openPayloads(r.id)}
                         disabled={!r.payload}
                         title="View metadata payload"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[#0A1F44] border border-[#0A1F44]/20 rounded-lg hover:bg-[#0A1F44]/5 disabled:opacity-30"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[#39B54A] border border-[#39B54A]/20 rounded-lg hover:bg-[#39B54A]/5 disabled:opacity-30"
                       >
                         <FileJson size={14} />
                       </button>
@@ -1156,18 +994,9 @@ const CollectionsPage = () => {
         />
       )}
 
-      {allocatePayment && (
-        <AllocateModal
-          payment={allocatePayment}
-          onClose={() => setAllocatePayment(null)}
-          onSuccess={fetchRows}
-        />
-      )}
-
       {findPaymentOpen && (
         <FindPaymentModal
           onClose={() => setFindPaymentOpen(false)}
-          onAllocate={handleFindPaymentAllocate}
           onRegister={openRegister}
         />
       )}
@@ -1180,15 +1009,6 @@ const CollectionsPage = () => {
             setRegisterPrefill(undefined);
           }}
           onSuccess={handleRegistered}
-        />
-      )}
-
-      {walletAdjustOpen && (
-        <WalletAdjustModal
-          onClose={() => setWalletAdjustOpen(false)}
-          onSuccess={fetchRows}
-          title="Update student wallet"
-          subtitle="Credit or debit a student wallet (cash, corrections, etc.)"
         />
       )}
     </div>

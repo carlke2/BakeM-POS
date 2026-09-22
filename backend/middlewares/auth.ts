@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smartpos-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'slowrise-secret-key';
+
+export type StaffRole = 'owner' | 'cashier';
 
 export interface AuthPayload {
   id: string;
   email?: string;
   phone?: string;
-  regNo?: string;
   role: string;
   name: string;
 }
@@ -42,20 +43,33 @@ export const ensureAuthenticated = (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const ensureAdmin = (req: Request, res: Response, next: NextFunction): any => {
+/** Owner-only (full bakery management). */
+export const ensureOwner = (req: Request, res: Response, next: NextFunction): any => {
   ensureAuthenticated(req, res, () => {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (req.user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
     }
     next();
   });
 };
 
+/** @deprecated use ensureOwner — kept for gradual import updates */
+export const ensureAdmin = ensureOwner;
+
+/** Owner access for finance endpoints. */
 export const ensureFinanceOrAdmin = (req: Request, res: Response, next: NextFunction): any => {
   ensureAuthenticated(req, res, () => {
-    if (!['admin', 'finance'].includes(req.user?.role || '')) {
-      return res.status(403).json({ error: 'Admin or finance access required' });
+    if (req.user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
     }
     next();
   });
 };
+
+export function canManageOps(role: string | undefined): boolean {
+  return role === 'owner' || role === 'cashier';
+}
+
+export function canManageBackoffice(role: string | undefined): boolean {
+  return role === 'owner';
+}

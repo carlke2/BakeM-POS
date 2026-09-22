@@ -12,6 +12,21 @@ import {
   UserRole,
 } from "@/services/authStorage";
 
+function normalizeAuthUser(raw: any): AuthUser | null {
+  if (!raw?.id && !raw?._id) return null;
+  const roleRaw = String(raw.role || "").toLowerCase();
+  let role: UserRole | null = null;
+  if (roleRaw === "owner" || roleRaw === "admin") role = "owner";
+  else if (roleRaw === "cashier" || roleRaw === "restaurant" || roleRaw === "finance") role = "cashier";
+  if (!role) return null;
+  return {
+    id: raw.id || raw._id,
+    name: raw.name,
+    role,
+    email: raw.email,
+  };
+}
+
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 type AuthContextValue = {
@@ -25,11 +40,8 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const DASHBOARD_PATHS: Record<UserRole, string> = {
-  admin: "/",
-  student: "/student/wallet",
-  parent: "/parent-dashboard",
-  finance: "/finance",
-  restaurant: "/pos",
+  owner: "/",
+  cashier: "/pos",
 };
 
 export function getDashboardPath(role: UserRole) {
@@ -47,14 +59,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = useCallback((nextUser: AuthUser, token: string) => {
-    persistAuthSession(nextUser, token);
+    const normalized = normalizeAuthUser(nextUser) || nextUser;
+    persistAuthSession(normalized, token);
     if (!hasValidStoredSession()) {
       clearAuthSession();
       setUser(null);
       setStatus("unauthenticated");
       return;
     }
-    setUser(nextUser);
+    setUser(normalized);
     setStatus("authenticated");
   }, []);
 
@@ -78,7 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         skipAuthRedirect: true,
         timeout: 10000,
       } as any);
-      const sessionUser = data.user as AuthUser;
+      const sessionUser = normalizeAuthUser(data.user);
       if (!sessionUser?.id || sessionUser.role !== role) {
         logout();
         return false;
@@ -87,7 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(sessionUser);
       setStatus("authenticated");
       return true;
-    } catch (err: any) {
+    } catch {
       logout();
       return false;
     }

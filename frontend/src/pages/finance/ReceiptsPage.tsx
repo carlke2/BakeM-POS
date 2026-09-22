@@ -19,7 +19,6 @@ interface ReceiptItem {
   createdAt: string;
   paymentMethod?: string;
   cashierName?: string | null;
-  student: { name: string; regNo: string } | null;
   items: { quantity: number; price: number; menuItem: { name: string } }[];
 }
 
@@ -55,14 +54,14 @@ const ReceiptsPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F4FD] min-h-screen font-sans space-y-6">
-      <div className="bg-[#0A1F44] text-white rounded-2xl p-6 flex justify-between items-center">
+    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
+      <div className="bg-[#39B54A] text-white rounded-2xl p-6 flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2"><Receipt /> POS Receipts</h2>
-          <p className="text-blue-200 text-sm mt-1">Cafeteria sales and transaction history</p>
+          <p className="text-white/80 text-sm mt-1">Bakery sales and transaction history</p>
         </div>
         <div className="text-right">
-          <p className="text-blue-200 text-xs">Total Sales</p>
+          <p className="text-white/80 text-xs">Total Sales</p>
           <p className="text-2xl font-bold">KES {totalSales.toLocaleString()}</p>
         </div>
       </div>
@@ -80,15 +79,11 @@ const ReceiptsPage = () => {
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition text-left"
               >
                 <div>
-                  <p className="font-semibold text-[#0A1F44]">
-                    {r.student ? (
-                      <>
-                        {r.student.name}{" "}
-                        <span className="text-gray-400 font-normal">({r.student.regNo})</span>
-                      </>
-                    ) : (
-                      <span>Guest <span className="text-gray-400 font-normal">(M-Pesa)</span></span>
-                    )}
+                  <p className="font-semibold text-[#39B54A] capitalize">
+                    {(r.paymentMethod || "cash").toLowerCase() === "mpesa" ? "M-Pesa" : "Cash"}
+                    {r.cashierName ? (
+                      <span className="text-gray-400 font-normal"> · {r.cashierName}</span>
+                    ) : null}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     {new Date(r.createdAt).toLocaleString()} · {displayReceiptNo(r)}
@@ -111,14 +106,14 @@ const ReceiptsPage = () => {
                     <button
                       type="button"
                       onClick={() => handlePrint(r)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0A1F44] border border-[#0A1F44]/20 rounded-lg hover:bg-[#0A1F44]/5"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#39B54A] border border-[#39B54A]/20 rounded-lg hover:bg-[#39B54A]/5"
                     >
                       <Printer size={14} /> Print
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDownload(r)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0A1F44] rounded-lg hover:bg-[#0A1F44]/90"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#39B54A] rounded-lg hover:bg-[#39B54A]/90"
                     >
                       <Download size={14} /> Download PDF
                     </button>

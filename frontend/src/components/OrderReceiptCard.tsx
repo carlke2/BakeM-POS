@@ -37,10 +37,10 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
       <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-5 text-left font-mono text-sm">
         <div className="text-center border-b border-gray-100 pb-4 mb-4">
           <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-            <img src={logo} alt="Better Forks" className="h-24 w-24 object-contain" />
+            <img src={logo} alt="Slow Rise Co" className="h-24 w-24 object-contain" />
           </div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-sans">Cafeteria Receipt</p>
-          <p className="text-base font-black text-[#0A1F44] mt-2 tracking-wide">{data.receiptNo}</p>
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-sans">Bakery Receipt</p>
+          <p className="text-base font-black text-[#39B54A] mt-2 tracking-wide">{data.receiptNo}</p>
           <p className="text-xs text-gray-500 mt-2 font-sans">
             {data.studentName} · {data.regNo}
           </p>
@@ -49,7 +49,7 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
             {data.paymentMethod ? ` · ${data.paymentMethod}` : ""}
           </p>
           {data.servedBy && (
-            <p className="text-xs text-[#0A1F44] font-semibold mt-2 font-sans">
+            <p className="text-xs text-[#39B54A] font-semibold mt-2 font-sans">
               Served by: {data.servedBy}
             </p>
           )}
@@ -78,14 +78,14 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
         <button
           type="button"
           onClick={handlePrint}
-          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#0A1F44] text-[#0A1F44] font-bold text-sm hover:bg-[#0A1F44]/5 transition"
+          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#39B54A] text-[#39B54A] font-bold text-sm hover:bg-[#39B54A]/5 transition"
         >
           <Printer size={16} /> Print
         </button>
         <button
           type="button"
           onClick={handleDownload}
-          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#0A1F44] text-white font-bold text-sm hover:bg-[#0A1F44]/90 transition"
+          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#39B54A] text-white font-bold text-sm hover:bg-[#39B54A]/90 transition"
         >
           <Download size={16} /> Download
         </button>

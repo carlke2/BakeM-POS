@@ -1,8 +1,20 @@
 import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import prisma from '@/services/prisma';
-import { ensureAuthenticated } from '@/middlewares/auth';
-import { findStaffByFingerprint, parseFingerprintTemplate, parseFingerprintMatchScore, verifyStaffFingerprint } from '@/services/fingerprint';
+import { ensureAuthenticated, canManageOps, AuthPayload } from '@/middlewares/auth';
 import { logAuditEvent } from '@/services/audit';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'slowrise-secret-key';
+
+function optionalUser(req: Request): AuthPayload | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    return jwt.verify(authHeader.split(' ')[1], JWT_SECRET) as AuthPayload;
+  } catch {
+    return null;
+  }
+}
 
 const router = Router();
 
@@ -41,7 +53,41 @@ async function nextAttendanceType(userId: string): Promise<'check_in' | 'check_o
   return lastToday?.type === 'check_in' ? 'check_out' : 'check_in';
 }
 
-// GET /api/attendance/staff — public terminal staff picker
+async function clockUser(
+  staff: { id: string; name: string; email: string; role: string },
+  req: Request,
+) {
+  const type = await nextAttendanceType(staff.id);
+
+  const record = await prisma.staffAttendance.create({
+    data: {
+      userId: staff.id,
+      type,
+      source: 'manual',
+    },
+  });
+
+  await logAuditEvent({
+    eventType: 'staff_attendance',
+    userType: staff.role,
+    userId: staff.id,
+    userName: staff.name,
+    userEmail: staff.email,
+    action: type === 'check_in' ? 'Staff Check In' : 'Staff Check Out',
+    description: `${staff.name} ${type === 'check_in' ? 'checked in' : 'checked out'} (manual)`,
+    metadata: { attendanceId: record.id, type },
+    ipAddress: req.ip,
+  });
+
+  return {
+    message: type === 'check_in' ? 'Checked in successfully' : 'Checked out successfully',
+    type,
+    staff: { id: staff.id, name: staff.name, role: staff.role, email: staff.email },
+    recordedAt: record.createdAt,
+  };
+}
+
+// GET /api/attendance/staff — active staff with today's last check type
 router.get('/staff', async (_req: Request, res: Response): Promise<any> => {
   const dayStart = startOfLocalDay(new Date());
   const dayEnd = endOfLocalDay(new Date());
@@ -49,7 +95,7 @@ router.get('/staff', async (_req: Request, res: Response): Promise<any> => {
   try {
     const [users, todayRecords] = await Promise.all([
       prisma.user.findMany({
-        where: { status: 'approved' },
+        where: { status: 'active' },
         orderBy: { name: 'asc' },
         select: {
           id: true,
@@ -57,8 +103,6 @@ router.get('/staff', async (_req: Request, res: Response): Promise<any> => {
           email: true,
           phone: true,
           role: true,
-          fingerprintEnrolledAt: true,
-          fingerprintTemplate: true,
         },
       }),
       prisma.staffAttendance.findMany({
@@ -78,7 +122,6 @@ router.get('/staff', async (_req: Request, res: Response): Promise<any> => {
     return res.json(
       users.map((u) => {
         const last = lastByUser.get(u.id);
-        const hasFingerprint = Boolean(u.fingerprintTemplate);
         const lastType = last?.type ?? null;
         return {
           id: u.id,
@@ -86,14 +129,9 @@ router.get('/staff', async (_req: Request, res: Response): Promise<any> => {
           email: u.email,
           phone: u.phone,
           role: u.role,
-          hasFingerprint,
           lastTypeToday: lastType,
           lastAtToday: last?.at ?? null,
-          nextAction: hasFingerprint
-            ? lastType === 'check_in'
-              ? 'check_out'
-              : 'check_in'
-            : null,
+          nextAction: lastType === 'check_in' ? 'check_out' : 'check_in',
         };
       }),
     );
@@ -102,102 +140,57 @@ router.get('/staff', async (_req: Request, res: Response): Promise<any> => {
   }
 });
 
-// GET /api/attendance/staff/:userId/enrolled-fingerprint — terminal local verify
-router.get('/staff/:userId/enrolled-fingerprint', async (req: Request, res: Response): Promise<any> => {
+// POST /api/attendance/clock — body { userId } or authenticated self-clock
+router.post('/clock', async (req: Request, res: Response): Promise<any> => {
+  const bodyUserId = req.body?.userId ? String(req.body.userId) : null;
+  const self = optionalUser(req);
+  const targetId = bodyUserId || self?.id;
+
+  if (!targetId) {
+    return res.status(422).json({ message: 'userId is required' });
+  }
+
   try {
     const user = await prisma.user.findFirst({
-      where: { id: req.params.userId as string, status: 'approved' },
-      select: { id: true, fingerprintTemplate: true },
+      where: { id: targetId, status: 'active' },
+      select: { id: true, name: true, email: true, role: true },
     });
-    if (!user?.fingerprintTemplate) {
-      return res.status(404).json({ message: 'Fingerprint not enrolled for this staff member' });
+    if (!user) {
+      return res.status(404).json({ message: 'Staff member not found' });
     }
-    return res.json({ fingerprintTemplate: user.fingerprintTemplate });
-  } catch {
-    return res.status(500).json({ message: 'Something went wrong' });
+
+    const result = await clockUser(user, req);
+    return res.status(201).json(result);
+  } catch (err) {
+    console.error('Attendance clock error:', err);
+    return res.status(500).json({ message: 'Could not record attendance' });
   }
 });
 
-// POST /api/attendance/clock — public terminal (select profile + fingerprint scan)
-router.post('/clock', async (req: Request, res: Response): Promise<any> => {
-  const { fingerprintTemplate, userId, fingerprintMatchScore } = req.body;
+// POST /api/attendance/me/clock — authenticated self clock-in/out
+router.post('/me/clock', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
+  if (!canManageOps(req.user!.role)) {
+    return res.status(403).json({ message: 'Not authorized' });
+  }
 
   try {
-    const template = parseFingerprintTemplate(fingerprintTemplate);
-    if (!template) {
-      return res.status(422).json({ message: 'fingerprintTemplate is required' });
-    }
-
-    let staff: { id: string; name: string; email: string; role: string } | null = null;
-
-    if (userId) {
-      const user = await prisma.user.findFirst({
-        where: { id: String(userId), status: 'approved' },
-        select: { id: true, name: true, email: true, role: true, fingerprintTemplate: true },
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: 'Staff member not found' });
-      }
-      if (!user.fingerprintTemplate) {
-        return res.status(422).json({ message: 'Fingerprint not enrolled for this staff member. Contact admin.' });
-      }
-
-      const matchScore = parseFingerprintMatchScore(fingerprintMatchScore);
-      const match = await verifyStaffFingerprint(user.id, template, { matchScore });
-      if (!match) {
-        return res.status(422).json({ message: 'Fingerprint did not match the selected profile. Try again.' });
-      }
-
-      staff = user;
-    } else {
-      const matched = await findStaffByFingerprint(template);
-      if (!matched) {
-        return res.status(404).json({ message: 'Fingerprint not recognized. Select your profile first or contact admin.' });
-      }
-      staff = matched;
-    }
-
-    const type = await nextAttendanceType(staff.id);
-
-    const record = await prisma.staffAttendance.create({
-      data: {
-        userId: staff.id,
-        type,
-        source: 'fingerprint',
-      },
+    const user = await prisma.user.findFirst({
+      where: { id: req.user!.id, status: 'active' },
+      select: { id: true, name: true, email: true, role: true },
     });
+    if (!user) return res.status(404).json({ message: 'Staff member not found' });
 
-    await logAuditEvent({
-      eventType: 'staff_attendance',
-      userType: staff.role,
-      userId: staff.id,
-      userName: staff.name,
-      userEmail: staff.email,
-      action: type === 'check_in' ? 'Staff Check In' : 'Staff Check Out',
-      description: `${staff.name} ${type === 'check_in' ? 'checked in' : 'checked out'} via fingerprint`,
-      metadata: { attendanceId: record.id, type },
-      ipAddress: req.ip,
-    });
-
-    return res.status(201).json({
-      message: type === 'check_in' ? 'Checked in successfully' : 'Checked out successfully',
-      type,
-      staff: { id: staff.id, name: staff.name, role: staff.role, email: staff.email },
-      recordedAt: record.createdAt,
-    });
-  } catch (err: any) {
-    if (err?.message === 'INVALID_FINGERPRINT') {
-      return res.status(422).json({ message: 'Invalid fingerprint scan. Please try again.' });
-    }
-    console.error('Attendance clock error:', err);
+    const result = await clockUser(user, req);
+    return res.status(201).json(result);
+  } catch (err) {
+    console.error('Self clock error:', err);
     return res.status(500).json({ message: 'Could not record attendance' });
   }
 });
 
 // GET /api/attendance/records
 router.get('/records', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'finance', 'restaurant'].includes(req.user!.role)) {
+  if (!canManageOps(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -208,14 +201,17 @@ router.get('/records', ensureAuthenticated, async (req: Request, res: Response):
   const createdAt =
     dateFilter && Object.keys(dateFilter).length > 0 ? dateFilter : undefined;
 
+  const isOwner = req.user!.role === 'owner';
+
   try {
     const records = await prisma.staffAttendance.findMany({
       where: {
         ...(createdAt ? { createdAt } : {}),
-        ...(userId ? { userId } : {}),
-        ...(req.user!.role !== 'admin' && req.user!.role !== 'finance'
-          ? { userId: req.user!.id }
-          : {}),
+        ...(isOwner
+          ? userId
+            ? { userId }
+            : {}
+          : { userId: req.user!.id }),
       },
       orderBy: { createdAt: 'desc' },
       take: 500,
@@ -243,16 +239,20 @@ router.get('/records', ensureAuthenticated, async (req: Request, res: Response):
 
 // GET /api/attendance/today — summary for today
 router.get('/today', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'finance', 'restaurant'].includes(req.user!.role)) {
+  if (!canManageOps(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
   const dayStart = startOfLocalDay(new Date());
   const dayEnd = endOfLocalDay(new Date());
+  const isOwner = req.user!.role === 'owner';
 
   try {
     const records = await prisma.staffAttendance.findMany({
-      where: { createdAt: { gte: dayStart, lte: dayEnd } },
+      where: {
+        createdAt: { gte: dayStart, lte: dayEnd },
+        ...(isOwner ? {} : { userId: req.user!.id }),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },

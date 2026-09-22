@@ -14,7 +14,7 @@ async function main() {
       id: true,
       status: true,
       amount: true,
-      walletCredited: true,
+      posCompleted: true,
       purpose: true,
       transactionReference: true,
     },
@@ -53,6 +53,7 @@ async function main() {
   }
 
   const multi = [...refs.entries()].filter(([, n]) => n > 1).length;
+  const posCompletedCount = all.filter((r) => r.posCompleted).length;
 
   console.log(
     JSON.stringify(
@@ -67,6 +68,7 @@ async function main() {
         sumSuccessLike,
         uniqueTill,
         multiRefGroups: multi,
+        posCompletedCount,
       },
       null,
       2,
@@ -79,4 +81,6 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

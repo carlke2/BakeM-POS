@@ -1,6 +1,6 @@
 /**
  * Remove duplicate KopoPayment rows that share the same M-Pesa transactionReference.
- * Keeps the oldest row; prefers a wallet-credited / allocated row if present.
+ * Keeps the oldest row; prefers a POS-completed row if present.
  *
  * Usage: npx ts-node -r tsconfig-paths/register scripts/dedupe-kopo-payments.ts
  */
@@ -13,9 +13,7 @@ async function main() {
     select: {
       id: true,
       transactionReference: true,
-      walletCredited: true,
-      allocatedAt: true,
-      studentId: true,
+      posCompleted: true,
       amount: true,
       createdAt: true,
     },
@@ -34,11 +32,7 @@ async function main() {
   for (const [ref, rows] of groups) {
     if (rows.length < 2) continue;
 
-    // Prefer credited/allocated, else oldest
-    const keep =
-      rows.find((r) => r.walletCredited || r.allocatedAt) ||
-      rows.find((r) => r.studentId) ||
-      rows[0];
+    const keep = rows.find((r) => r.posCompleted) || rows[0];
 
     const dropIds = rows.filter((r) => r.id !== keep.id).map((r) => r.id);
     console.log(

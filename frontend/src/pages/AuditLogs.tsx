@@ -93,7 +93,7 @@ const AuditLogs: React.FC = () => {
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
       case "login":
-        return <User className="text-blue-600" size={18} />;
+        return <User className="text-[#148A32]" size={18} />;
       case "payment":
         return <CreditCard className="text-green-600" size={18} />;
       case "enrollment":
@@ -101,11 +101,11 @@ const AuditLogs: React.FC = () => {
       case "course_created":
       case "course_updated":
       case "course_deleted":
-        return <BookOpen className="text-indigo-600" size={18} />;
+        return <BookOpen className="text-[#148A32]" size={18} />;
       case "student_created":
       case "student_updated":
       case "student_deleted":
-        return <GraduationCap className="text-blue-600" size={18} />;
+        return <GraduationCap className="text-[#148A32]" size={18} />;
       case "staff_created":
       case "staff_updated":
       case "staff_deleted":
@@ -116,7 +116,7 @@ const AuditLogs: React.FC = () => {
   };
 
   const getEventBadgeColor = (eventType: string) => {
-    if (eventType.includes("login")) return "bg-blue-100 text-blue-700";
+    if (eventType.includes("login")) return "bg-[#E8F6EC] text-[#0F6E28]";
     if (eventType.includes("payment")) return "bg-green-100 text-green-700";
     if (eventType.includes("created")) return "bg-green-100 text-green-700";
     if (eventType.includes("updated")) return "bg-yellow-100 text-yellow-700";
@@ -126,9 +126,9 @@ const AuditLogs: React.FC = () => {
 
   const getUserTypeBadge = (userType: string) => {
     const colors = {
-      admin: "bg-indigo-100 text-indigo-700",
+      admin: "bg-[#D4F0DB] text-[#0F6E28]",
       staff: "bg-purple-100 text-purple-700",
-      student: "bg-blue-100 text-blue-700",
+      student: "bg-[#E8F6EC] text-[#0F6E28]",
     };
     return (
       <span className={`px-2 py-1 rounded text-xs font-medium ${colors[userType as keyof typeof colors] || "bg-gray-100 text-gray-700"}`}>
@@ -146,7 +146,7 @@ const AuditLogs: React.FC = () => {
         </div>
         <button
           onClick={fetchEvents}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#148A32] text-white rounded-lg hover:bg-[#0F6E28] transition"
         >
           <RefreshCw size={18} />
           Refresh
@@ -156,19 +156,19 @@ const AuditLogs: React.FC = () => {
       {/* Statistics Cards */}
       {data?.stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-blue-50 p-4 rounded-lg border border-black/10">
+          <div className="bg-[#E8F6EC] p-4 rounded-lg border border-black/10">
             <p className="text-sm text-gray-600 mb-1">Total Events</p>
             <p className="text-2xl font-bold text-black">{data.stats.total.toLocaleString()}</p>
           </div>
-          <div className="bg-blue-50 p-4 rounded-lg border border-black/10">
+          <div className="bg-[#E8F6EC] p-4 rounded-lg border border-black/10">
             <p className="text-sm text-gray-600 mb-1">Today's Events</p>
             <p className="text-2xl font-bold text-black">{data.stats.today}</p>
           </div>
-          <div className="bg-blue-50 p-4 rounded-lg border border-black/10">
+          <div className="bg-[#E8F6EC] p-4 rounded-lg border border-black/10">
             <p className="text-sm text-gray-600 mb-1">Recent Logins (24h)</p>
             <p className="text-2xl font-bold text-black">{data.stats.recentLogins}</p>
           </div>
-          <div className="bg-blue-50 p-4 rounded-lg border border-black/10">
+          <div className="bg-[#E8F6EC] p-4 rounded-lg border border-black/10">
             <p className="text-sm text-gray-600 mb-1">Current Page</p>
             <p className="text-2xl font-bold text-black">
               {data.pagination.page} / {data.pagination.pages}
@@ -191,13 +191,13 @@ const AuditLogs: React.FC = () => {
               placeholder="Search events..."
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
-              className="pl-10 pr-4 py-2 border rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="pl-10 pr-4 py-2 border rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#39B54A]"
             />
           </div>
           <select
             value={filters.eventType}
             onChange={(e) => setFilters({ ...filters, eventType: e.target.value, page: 1 })}
-            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#39B54A]"
           >
             <option value="">All Event Types</option>
             <option value="login">Login</option>
@@ -212,7 +212,7 @@ const AuditLogs: React.FC = () => {
           <select
             value={filters.userType}
             onChange={(e) => setFilters({ ...filters, userType: e.target.value, page: 1 })}
-            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#39B54A]"
           >
             <option value="">All User Types</option>
             <option value="admin">Admin</option>
@@ -223,14 +223,14 @@ const AuditLogs: React.FC = () => {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value, page: 1 })}
-            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#39B54A]"
             placeholder="Start Date"
           />
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value, page: 1 })}
-            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#39B54A]"
             placeholder="End Date"
           />
         </div>
@@ -298,7 +298,7 @@ const AuditLogs: React.FC = () => {
                       )}
                       {event.metadata && Object.keys(event.metadata).length > 0 && (
                         <details className="mt-1">
-                          <summary className="text-xs text-indigo-600 cursor-pointer">View details</summary>
+                          <summary className="text-xs text-[#148A32] cursor-pointer">View details</summary>
                           <pre className="text-xs mt-1 p-2 bg-gray-100 rounded overflow-auto max-w-md">
                             {JSON.stringify(event.metadata, null, 2)}
                           </pre>

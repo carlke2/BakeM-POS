@@ -127,7 +127,7 @@ const KitchenPanel = ({ onProductionRecorded }: Props) => {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h4 className="font-extrabold text-[#0A1F44] text-lg">{dish.name}</h4>
+                  <h4 className="font-extrabold text-[#39B54A] text-lg">{dish.name}</h4>
                   <p className="text-xs text-gray-500 mt-0.5">
                     KES {dish.price} each · {dish.batchYield} per batch · target KES {dish.expectedPerBatch.toLocaleString()}
                   </p>
@@ -145,11 +145,11 @@ const KitchenPanel = ({ onProductionRecorded }: Props) => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                 <div className="bg-slate-50 rounded-xl p-2.5">
                   <p className="text-[9px] text-gray-400 font-bold uppercase">Raw stock</p>
-                  <p className="text-sm font-black text-[#0A1F44]">{dish.canCookBatches} batches</p>
+                  <p className="text-sm font-black text-[#39B54A]">{dish.canCookBatches} batches</p>
                 </div>
-                <div className="bg-indigo-50 rounded-xl p-2.5">
-                  <p className="text-[9px] text-indigo-600 font-bold uppercase">Ready (POS)</p>
-                  <p className="text-sm font-black text-indigo-900">{dish.portionsReady}</p>
+                <div className="bg-[#E8F6EC] rounded-xl p-2.5">
+                  <p className="text-[9px] text-[#148A32] font-bold uppercase">Ready (POS)</p>
+                  <p className="text-sm font-black text-[#0F6E28]">{dish.portionsReady}</p>
                 </div>
                 <div className="bg-emerald-50 rounded-xl p-2.5">
                   <p className="text-[9px] text-emerald-600 font-bold uppercase">Sales made</p>

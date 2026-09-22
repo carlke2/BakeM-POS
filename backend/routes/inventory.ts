@@ -12,7 +12,7 @@ function devErrorDetail(error: unknown): string | undefined {
 
 // ─── GET /api/inventory/items ─────────────────────────────────────────────────
 router.get('/items', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant', 'finance'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -32,7 +32,7 @@ router.get('/items', ensureAuthenticated, async (req: Request, res: Response): P
 
 // ─── POST /api/inventory/items ────────────────────────────────────────────────
 router.post('/items', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -62,7 +62,7 @@ router.post('/items', ensureAuthenticated, async (req: Request, res: Response): 
 // ─── POST /api/inventory/movements ────────────────────────────────────────────
 // Record stock coming in (purchases) or out (usage/spoilage)
 router.post('/movements', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -118,7 +118,7 @@ router.post('/movements', ensureAuthenticated, async (req: Request, res: Respons
 
 // ─── GET /api/inventory/movements ─────────────────────────────────────────────
 router.get('/movements', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant', 'finance'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -147,7 +147,7 @@ router.get('/movements', ensureAuthenticated, async (req: Request, res: Response
 
 // ─── GET /api/inventory/suppliers ─────────────────────────────────────────────
 router.get('/suppliers', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant', 'finance'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -166,7 +166,7 @@ router.get('/suppliers', ensureAuthenticated, async (req: Request, res: Response
 
 // ─── POST /api/inventory/suppliers ────────────────────────────────────────────
 router.post('/suppliers', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -206,7 +206,7 @@ router.post('/suppliers', ensureAuthenticated, async (req: Request, res: Respons
 
 // ─── PUT /api/inventory/suppliers/:id ─────────────────────────────────────────
 router.put('/suppliers/:id', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin', 'restaurant'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 
@@ -249,7 +249,7 @@ router.put('/suppliers/:id', ensureAuthenticated, async (req: Request, res: Resp
 
 // ─── DELETE /api/inventory/suppliers/:id ──────────────────────────────────────
 router.delete('/suppliers/:id', ensureAuthenticated, async (req: Request, res: Response): Promise<any> => {
-  if (!['admin'].includes(req.user!.role)) {
+  if (!['owner'].includes(req.user!.role)) {
     return res.status(403).json({ message: 'Not authorized' });
   }
 

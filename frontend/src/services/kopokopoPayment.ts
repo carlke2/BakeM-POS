@@ -1,13 +1,12 @@
 import API from "@/services/api";
 import { io, Socket } from "socket.io-client";
 
-export type StkPurpose = "wallet_topup" | "pos_sale" | "general";
+export type StkPurpose = "pos_sale";
 
 export type StkPushOptions = {
   phone: string;
   amount: number;
   description?: string;
-  studentId?: string;
   purpose?: StkPurpose;
   items?: { menuItemId: string; quantity: number }[];
   useAuth?: boolean;
@@ -79,7 +78,6 @@ export async function initiateStkPushAndWait(
     amount: opts.amount,
     description: opts.description,
   };
-  if (opts.studentId) payload.studentId = opts.studentId;
   if (opts.purpose) payload.purpose = opts.purpose;
   if (opts.items) payload.items = opts.items;
   if (opts.kiosk) payload.kiosk = true;

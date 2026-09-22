@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 
 const Settings = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "owner";
 
   const [loading, setLoading] = useState(isAdmin);
   const [saving, setSaving] = useState(false);
@@ -57,7 +57,7 @@ const Settings = () => {
   if (!isAdmin) {
     return (
       <div className="p-6 max-w-2xl mx-auto">
-        <h2 className="text-2xl font-bold text-[#0A1F44]">Settings</h2>
+        <h2 className="text-2xl font-bold text-[#39B54A]">Settings</h2>
         <p className="text-sm text-gray-500 mt-2">Admin only.</p>
       </div>
     );
@@ -66,7 +66,7 @@ const Settings = () => {
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-[#0A1F44] flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-[#39B54A] flex items-center gap-2">
           <SettingsIcon size={24} /> Settings
         </h2>
         <p className="text-sm text-gray-500 mt-1">System notification controls</p>
@@ -77,7 +77,7 @@ const Settings = () => {
       ) : (
         <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:p-6 space-y-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#0A1F44]">SMS</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#39B54A]">SMS</p>
             <p className="text-sm text-gray-500 mt-1">
               System-wide kill switch for all Advanta SMS (welcome messages and alerts).
               {!smsConfigured && (
@@ -102,7 +102,7 @@ const Settings = () => {
                 {smsDisabled ? <BellOff size={18} /> : <MessageSquare size={18} />}
               </div>
               <div className="min-w-0">
-                <p className="font-semibold text-[#0A1F44]">Disable SMS</p>
+                <p className="font-semibold text-[#39B54A]">Disable SMS</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {smsDisabled
                     ? "SMS is off for the whole system."
@@ -132,7 +132,7 @@ const Settings = () => {
             type="button"
             onClick={save}
             disabled={saving}
-            className="w-full sm:w-auto px-5 py-2.5 bg-[#0A1F44] hover:bg-[#0A1F44]/90 text-white rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full sm:w-auto px-5 py-2.5 bg-[#39B54A] hover:bg-[#39B54A]/90 text-white rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60"
           >
             <Save size={16} />
             {saving ? "Saving..." : "Save settings"}
