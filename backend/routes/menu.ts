@@ -1,8 +1,10 @@
 import { Router, Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '@/services/prisma';
-import { getSupabase, getSupabaseConfigError, isSupabaseConfigured } from '@/services/supabase';
+import { getSupabase, isSupabaseConfigured } from '@/services/supabase';
 import { ensureAuthenticated } from '@/middlewares/auth';
 import { logAuditEvent } from '@/services/audit';
 import { recordProduction } from '@/services/production';
@@ -260,18 +262,18 @@ router.post(
         return res.status(422).json({ message: 'No image file provided' });
       }
 
-      const configError = getSupabaseConfigError();
+      const ext = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
+      const filename = `${uuidv4()}.${ext}`;
+
       if (!isSupabaseConfigured()) {
-        console.error('Supabase storage not configured:', configError);
-        return res.status(503).json({
-          message: 'Image upload is not configured on the server',
-          detail: configError,
-        });
+        const dir = path.resolve(__dirname, '..', 'uploads', 'menu');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, filename), req.file.buffer);
+        const url = `${req.protocol}://${req.get('host')}/uploads/menu/${filename}`;
+        return res.json({ url });
       }
 
       const supabase = getSupabase();
-      const ext = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
-      const filename = `${uuidv4()}.${ext}`;
 
       let uploadResult = await supabase.storage
         .from('menu-images')

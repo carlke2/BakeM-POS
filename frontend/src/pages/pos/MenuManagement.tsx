@@ -96,9 +96,7 @@ const ImageUploader = ({ value, onChange, disabled }: ImageUploaderProps) => {
       try {
         const fd = new FormData();
         fd.append("image", file);
-        const { data } = await API.post<{ url: string }>("/menu/upload-image", fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const { data } = await API.post<{ url: string }>("/menu/upload-image", fd);
         onChange(data.url);
         toast.success("Image uploaded");
       } catch (e: any) {

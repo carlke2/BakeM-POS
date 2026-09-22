@@ -41,3 +41,4 @@ obj/
 
 # Backend local data
 backend/data/
+backend/uploads/

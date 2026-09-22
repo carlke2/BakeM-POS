@@ -225,8 +225,8 @@ async function main() {
   }
 
   console.log('Seed complete.');
-  console.log(`  Owner:   ${owner.email} / ${ownerPassword}`);
-  console.log(`  Cashier: ${cashier.email} / ${cashierPassword}`);
+  console.log(`  Owner:   ${owner.email}`);
+  console.log(`  Cashier: ${cashier.email}`);
   console.log(`  Categories: ${categories.map((c) => c.name).join(', ')}`);
 }
 
