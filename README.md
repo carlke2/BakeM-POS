@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Bakery POS
+=======
+﻿# Bakery POS
+>>>>>>> 76c2e8e0884e91aaeb6807861ddf091d62fd7301
 
 A point-of-sale, inventory, and production-tracking system built for bakery operations — order taking, batch production tracking, ingredient-level inventory, supplier management, and sales reporting.
 
