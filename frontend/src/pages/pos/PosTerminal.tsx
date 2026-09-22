@@ -819,7 +819,7 @@ const PosTerminal = () => {
             <div className="px-6 py-5 bg-[#15A84F] text-white flex items-center justify-between">
               <div>
                 <p className="text-sm font-black uppercase tracking-wider">M-Pesa Payment</p>
-                <p className="text-xs text-green-100 mt-0.5">STK Push · KES {total.toLocaleString()}</p>
+                <p className="text-xs text-green-100 mt-0.5">Safaricom Daraja · KES {total.toLocaleString()}</p>
               </div>
               <button
                 type="button"

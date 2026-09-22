@@ -15,6 +15,7 @@ import posRoutes from '@/routes/pos';
 import inventoryRoutes from '@/routes/inventory';
 import financeRoutes from '@/routes/finance';
 import kopokopoRoutes from '@/routes/kopokopo';
+import mpesaRoutes from '@/routes/mpesa';
 import attendanceRoutes from '@/routes/attendance';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { checkDatabase, connectDatabase } from '@/services/prisma';
@@ -49,6 +50,13 @@ io.on('connection', (socket) => {
     if (location) {
       socket.join(location);
       console.log(`Socket ${socket.id} joined kopokopo room ${location}`);
+    }
+  });
+
+  socket.on('join_mpesa', ({ location }: { location: string }) => {
+    if (location) {
+      socket.join(location);
+      console.log(`Socket ${socket.id} joined mpesa room ${location}`);
     }
   });
 
@@ -102,6 +110,7 @@ app.use('/api/pos', posRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/kopokopo', kopokopoRoutes);
+app.use('/api/mpesa', mpesaRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
 app.use((_req: Request, res: Response) => {

@@ -87,7 +87,7 @@ export async function initiateStkPushAndWait(
 
   let pushData: { location?: string; resumed?: boolean; paymentId?: string };
   try {
-    ({ data: pushData } = await API.post("/kopokopo/stkpush", payload, {
+    ({ data: pushData } = await API.post("/mpesa/stkpush", payload, {
       ...requestConfig,
       timeout: 35_000,
     }));
@@ -142,7 +142,7 @@ export async function initiateStkPushAndWait(
     const cleanup = () => {
       window.clearTimeout(hardTimeout);
       window.clearInterval(pollInterval);
-      socket.off("kopokopo_update");
+      socket.off("mpesa_update");
       socket.disconnect();
     };
 
@@ -150,7 +150,7 @@ export async function initiateStkPushAndWait(
       if (settled || pollInFlight) return;
       pollInFlight = true;
       try {
-        const { data } = await API.get<StkPaymentResult>("/kopokopo/status", {
+        const { data } = await API.get<StkPaymentResult>("/mpesa/status", {
           params: { location: paymentLocation },
           ...requestConfig,
           timeout: 15_000,
@@ -163,8 +163,8 @@ export async function initiateStkPushAndWait(
       }
     };
 
-    socket.emit("join_kopokopo", { location: paymentLocation });
-    socket.on("kopokopo_update", (data: StkPaymentResult) => {
+    socket.emit("join_mpesa", { location: paymentLocation });
+    socket.on("mpesa_update", (data: StkPaymentResult) => {
       // Ignore other customers' till/STK events (backend also broadcasts globally)
       if (!matchesPayment(data, paymentLocation, paymentId)) return;
       if (!isTerminalStatus(data?.status)) return;

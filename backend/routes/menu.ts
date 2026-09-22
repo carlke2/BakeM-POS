@@ -4,7 +4,6 @@ import path from 'path';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '@/services/prisma';
-import { getSupabase, isSupabaseConfigured } from '@/services/supabase';
 import { ensureAuthenticated } from '@/middlewares/auth';
 import { logAuditEvent } from '@/services/audit';
 import { recordProduction } from '@/services/production';
@@ -262,57 +261,13 @@ router.post(
         return res.status(422).json({ message: 'No image file provided' });
       }
 
-      const ext = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
+      const ext = (req.file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
       const filename = `${uuidv4()}.${ext}`;
-
-      if (!isSupabaseConfigured()) {
-        const dir = path.resolve(__dirname, '..', 'uploads', 'menu');
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, filename), req.file.buffer);
-        const url = `${req.protocol}://${req.get('host')}/uploads/menu/${filename}`;
-        return res.json({ url });
-      }
-
-      const supabase = getSupabase();
-
-      let uploadResult = await supabase.storage
-        .from('menu-images')
-        .upload(filename, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false,
-        });
-
-      if (uploadResult.error && uploadResult.error.message === 'Bucket not found') {
-        console.log('Supabase bucket "menu-images" not found. Attempting to create it...');
-        const { error: createError } = await supabase.storage.createBucket('menu-images', {
-          public: true,
-        });
-        if (createError) {
-          console.error('Failed to create Supabase bucket:', createError);
-          return res.status(500).json({
-            message: 'Image upload failed: bucket not found and could not be created',
-            detail: createError.message,
-          });
-        }
-        console.log('Successfully created public Supabase bucket "menu-images". Retrying upload...');
-        uploadResult = await supabase.storage
-          .from('menu-images')
-          .upload(filename, req.file.buffer, {
-            contentType: req.file.mimetype,
-            upsert: false,
-          });
-      }
-
-      if (uploadResult.error) {
-        console.error('Supabase upload error:', uploadResult.error);
-        return res.status(500).json({ message: 'Image upload failed', detail: uploadResult.error.message });
-      }
-
-      const { data: publicData } = supabase.storage
-        .from('menu-images')
-        .getPublicUrl(filename);
-
-      return res.json({ url: publicData.publicUrl });
+      const dir = path.resolve(__dirname, '..', 'uploads', 'menu');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, filename), req.file.buffer);
+      const url = `${req.protocol}://${req.get('host')}/uploads/menu/${filename}`;
+      return res.json({ url });
     } catch (err: any) {
       console.error('Upload image handler error:', err);
       return res.status(500).json({
