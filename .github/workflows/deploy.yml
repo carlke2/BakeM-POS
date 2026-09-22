@@ -1,0 +1,35 @@
+name: Deploy to production
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            cd /home/pceaserver/SmartPOS
+            # First deploy: pull deploy script before it exists on disk
+            if [[ ! -f scripts/deploy.sh ]]; then
+              cp backend/.env /tmp/smartpos-backend.env.bak
+              test -f frontend/.env && cp frontend/.env /tmp/smartpos-frontend.env.bak
+              git fetch origin
+              git reset --hard origin/master
+              cp /tmp/smartpos-backend.env.bak backend/.env
+              test -f /tmp/smartpos-frontend.env.bak && cp /tmp/smartpos-frontend.env.bak frontend/.env
+            fi
+            bash scripts/deploy.sh

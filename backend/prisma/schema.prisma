@@ -1,0 +1,342 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model Parent {
+  id           String    @id @default(cuid())
+  name         String
+  email        String?   @unique
+  phone        String?   @unique
+  password     String
+  receiveSms   Boolean   @default(true)
+  receiveEmail Boolean   @default(true)
+  students     Student[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("parents")
+}
+
+model Student {
+  id            String              @id @default(cuid())
+  name          String
+  regNo         String              @unique
+  phone         String?
+  email         String?
+  gender        String
+  dateOfBirth   DateTime?
+  course            String?
+  className         String?             @map("class_name")
+  category          String?             @default("regular") // regular | sponsored
+  password      String
+  parentRelationship String?
+  
+  // School Feeding & Wallet
+  walletBalance Float               @default(0)
+  walletFrozen  Boolean             @default(false)
+  dailySpendLimit  Float?
+  weeklySpendLimit Float?
+  walletPinHash    String?
+  walletPinSetAt   DateTime?
+  parentId      String?
+  parent        Parent?             @relation(fields: [parentId], references: [id])
+
+  // Biometric enrollment (ZKTeco template, base64-encoded)
+  fingerprintTemplate     String?
+  fingerprintTemplateHash String?   @unique
+  fingerprintEnrolledAt   DateTime?
+  
+  transactions  WalletTransaction[]
+  receipts      PosTransaction[]
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("students")
+}
+
+// System Users (Finance Officers, Restaurant Staff, etc.)
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  phone           String?
+  role            String   // finance, restaurant, admin, etc.
+  status          String   @default("pending")
+  password        String
+  rejectionReason String?
+
+  fingerprintTemplate     String?
+  fingerprintTemplateHash String?   @unique
+  fingerprintEnrolledAt   DateTime?
+
+  attendanceRecords StaffAttendance[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("users")
+}
+
+model StaffAttendance {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // check_in | check_out
+  source    String   @default("fingerprint")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("staff_attendance")
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount      Float    // Positive for top-ups, Negative for purchases
+  type        String   // "deposit", "purchase", "refund"
+  reference   String?  // e.g. receipt ID or payment reference
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("wallet_transactions")
+}
+
+model MenuCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float    @default(0)
+  category    String   // matches MenuCategory.name
+  imageUrl    String?
+  isAvailable Boolean  @default(true)
+  stockLevel  Int?     // null = unlimited; when set, decrements on each sale
+  batchYield  Int?     @map("batch_yield") // portions produced per recipe batch (e.g. 60 mandazis)
+
+  receiptItems      PosTransactionItem[]
+  ingredients       MenuItemIngredient[]
+  productionBatches ProductionBatch[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("menu_items")
+}
+
+model ProductionBatch {
+  id              String   @id @default(cuid())
+  menuItemId      String   @map("menu_item_id")
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  yieldQuantity   Int      @map("yield_quantity")
+  unitPrice       Float    @map("unit_price")
+  expectedRevenue Float    @map("expected_revenue")
+  soldQuantity    Int      @default(0) @map("sold_quantity")
+  soldAmount      Float    @default(0) @map("sold_amount")
+  status          String   @default("active") // active | depleted
+  notes           String?
+  userId          String   @map("user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([menuItemId, status, createdAt])
+  @@map("production_batches")
+}
+
+model MenuItemIngredient {
+  id              String        @id @default(cuid())
+  menuItemId      String
+  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  quantity        Float
+
+  @@unique([menuItemId, inventoryItemId])
+  @@map("menu_item_ingredients")
+}
+
+model PosTransaction {
+  id          String   @id @default(cuid())
+  receiptNo   String?  @unique
+  studentId   String?
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  cashierId   String   // The User (restaurant staff) who processed it
+  totalAmount Float
+  status      String   @default("completed") // completed, voided
+  paymentMethod String @default("wallet") @map("payment_method") // wallet | mpesa | cash
+  
+  items       PosTransactionItem[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pos_transactions")
+}
+
+model PosTransactionItem {
+  id            String         @id @default(cuid())
+  transactionId String
+  transaction   PosTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  menuItemId    String
+  menuItem      MenuItem       @relation(fields: [menuItemId], references: [id])
+  quantity      Int
+  price         Float          // Price at the time of purchase
+
+  @@map("pos_transaction_items")
+}
+
+model Supplier {
+  id            String          @id @default(cuid())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  
+  stockMovements StockMovement[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("suppliers")
+}
+
+model InventoryItem {
+  id           String          @id @default(cuid())
+  name         String
+  category     String          // Grains, Vegetables, Meat, Dairy
+  unit         String          // kg, liters, pieces
+  stockLevel   Float           @default(0)
+  reorderLevel Float           @default(0)
+  unitCost     Float           @default(0)
+  
+  movements       StockMovement[]
+  menuIngredients MenuItemIngredient[]
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@map("inventory_items")
+}
+
+model StockMovement {
+  id              String        @id @default(cuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  type            String        // "IN", "OUT"
+  quantity        Float
+  reason          String        // "purchase", "usage", "spoilage"
+  supplierId      String?
+  supplier        Supplier?     @relation(fields: [supplierId], references: [id])
+  reference       String?       // Invoice number
+  notes           String?
+  userId          String        // User who recorded it
+  createdAt       DateTime      @default(now())
+
+  @@map("stock_movements")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  category    String   // Salaries, Utilities, Maintenance, Ingredients
+  amount      Float
+  description String
+  date        DateTime @default(now())
+  recordedBy  String   // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("expenses")
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  eventType   String
+  userType    String
+  userId      String?
+  userName    String
+  userEmail   String?
+  action      String
+  description String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("audit_events")
+}
+
+model KopoPayment {
+  id                   String   @id @default(cuid())
+  reference            String?  @unique
+  location             String?  @unique
+  status               String   @default("pending")
+  eventType            String   @default("buygoods_transaction_received") @map("event_type")
+  amount               Float    @default(0)
+  currency             String   @default("KES")
+  phone                String   @default("")
+  description          String   @default("")
+  tillNumber           String   @default("") @map("till_number")
+  transactionReference String   @default("") @map("transaction_reference")
+  originationTime      String?  @map("origination_time")
+  rawPayload           Json?    @map("raw_payload")
+  studentId            String?  @map("student_id")
+  payerUserId          String?  @map("payer_user_id")
+  payerRole            String?  @map("payer_role")
+  purpose              String   @default("wallet_topup") // wallet_topup | pos_sale | general
+  posCart              Json?    @map("pos_cart")
+  posCompleted         Boolean  @default(false) @map("pos_completed")
+  posTransactionId     String?  @unique @map("pos_transaction_id")
+  walletCredited       Boolean  @default(false) @map("wallet_credited")
+  allocatedBy          String?  @map("allocated_by")
+  allocatedAt          DateTime? @map("allocated_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([studentId])
+  @@index([payerUserId])
+  @@map("kopo_payments")
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  email     String
+  role      String    // student | parent
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, role])
+  @@map("password_resets")
+}
