@@ -42,6 +42,7 @@ const OWNER_SECTIONS: MenuSection[] = [
     title: "Operations",
     items: [
       { name: "Staff", icon: Users, path: "/staffs" },
+      { name: "Shop orders", icon: Truck, path: "/shop-orders" },
       { name: "Menu", icon: UtensilsCrossed, path: "/menu-management" },
       { name: "Inventory", icon: Package, path: "/inventory" },
       { name: "Suppliers", icon: Truck, path: "/suppliers" },
@@ -86,6 +87,7 @@ const CASHIER_SECTIONS: MenuSection[] = [
 const ROLE_LABELS: Record<UserRole, string> = {
   owner: "Owner",
   cashier: "Cashier",
+  delivery: "Delivery",
 };
 
 const Sidebar = () => {

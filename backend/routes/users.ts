@@ -6,7 +6,7 @@ import { logAuditEvent } from '@/services/audit';
 
 const router = Router();
 
-const ALLOWED_ROLES = ['owner', 'cashier'] as const;
+const ALLOWED_ROLES = ['owner', 'cashier', 'delivery'] as const;
 type AllowedRole = (typeof ALLOWED_ROLES)[number];
 
 const fmt = (u: { id: string; [key: string]: unknown }) => ({ ...u, _id: u.id });
@@ -30,7 +30,7 @@ router.post('/', ensureOwner, async (req: Request, res: Response): Promise<any> 
   }
 
   if (!ALLOWED_ROLES.includes(role as AllowedRole)) {
-    return res.status(422).json({ message: 'Role must be owner or cashier' });
+    return res.status(422).json({ message: 'Role must be owner, cashier, or delivery' });
   }
 
   try {

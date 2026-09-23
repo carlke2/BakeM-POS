@@ -4,7 +4,7 @@ import API from "@/services/api";
 import { toast } from "@/services/toast";
 import Loader from "@/components/ui/loader";
 
-type StaffRole = "owner" | "cashier";
+type StaffRole = "owner" | "cashier" | "delivery";
 type StaffStatus = "approved" | "pending" | "rejected";
 
 type StaffRow = {
@@ -34,10 +34,12 @@ const roleLabel = (role: string) =>
     ? "Owner"
     : role === "cashier" || role === "restaurant" || role === "finance"
       ? "Cashier"
-      : role;
+      : role === "delivery"
+        ? "Delivery"
+        : role;
 
 const normalizeRole = (role: string): StaffRole =>
-  role === "owner" || role === "admin" ? "owner" : "cashier";
+  role === "owner" || role === "admin" ? "owner" : role === "delivery" ? "delivery" : "cashier";
 
 const Staffs = () => {
   const [staff, setStaff] = useState<StaffRow[]>([]);
@@ -168,7 +170,7 @@ const Staffs = () => {
             <Users size={28} /> Staff
           </h1>
           <p className="text-white/80 text-sm mt-1">
-            Manage Slow Rise Co owners and cashiers
+            Manage Slow Rise Co owners, cashiers, and delivery riders
           </p>
         </div>
 
@@ -206,6 +208,7 @@ const Staffs = () => {
               <option value="all">All roles</option>
               <option value="owner">Owner</option>
               <option value="cashier">Cashier</option>
+              <option value="delivery">Delivery</option>
             </select>
             <select
               value={statusFilter}
@@ -343,6 +346,7 @@ const Staffs = () => {
                 required
               >
                 <option value="cashier">Cashier</option>
+                <option value="delivery">Delivery</option>
                 <option value="owner">Owner</option>
               </select>
               <select

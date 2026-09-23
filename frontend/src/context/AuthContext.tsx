@@ -17,6 +17,7 @@ function normalizeAuthUser(raw: any): AuthUser | null {
   const roleRaw = String(raw.role || "").toLowerCase();
   let role: UserRole | null = null;
   if (roleRaw === "owner" || roleRaw === "admin") role = "owner";
+  else if (roleRaw === "delivery") role = "delivery";
   else if (roleRaw === "cashier" || roleRaw === "restaurant" || roleRaw === "finance") role = "cashier";
   if (!role) return null;
   return {
@@ -42,6 +43,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const DASHBOARD_PATHS: Record<UserRole, string> = {
   owner: "/",
   cashier: "/pos",
+  delivery: "/delivery",
 };
 
 export function getDashboardPath(role: UserRole) {

@@ -414,6 +414,14 @@ async function loadActiveReservation(tx: Tx, id: string) {
   return reservation;
 }
 
+type ReservationReleasedHook = (reservationId: string, reason: string) => Promise<void>;
+let reservationReleasedHook: ReservationReleasedHook | null = null;
+
+/** Shop orders listen here so an expired or failed hold becomes cancelled. */
+export function onReservationReleased(hook: ReservationReleasedHook) {
+  reservationReleasedHook = hook;
+}
+
 export async function releaseReservation(id: string, reason: string) {
   return prisma.$transaction(async (tx) => {
     const reservation = await loadActiveReservation(tx, id);
@@ -425,7 +433,7 @@ export async function releaseReservation(id: string, reason: string) {
       await applyReservedDelta(tx, hold.inventoryItemId, -hold.quantity);
     }
 
-    return tx.stockReservation.update({
+    const released = await tx.stockReservation.update({
       where: { id },
       data: {
         status: 'released',
@@ -434,7 +442,13 @@ export async function releaseReservation(id: string, reason: string) {
       },
       include: { items: true, holds: true },
     });
-  }, txOptions);
+    return released;
+  }, txOptions).then(async (released) => {
+    if (reservationReleasedHook && released.status === 'released') {
+      await reservationReleasedHook(id, reason);
+    }
+    return released;
+  });
 }
 
 export async function releaseReservationForPayment(paymentId: string, reason: string) {

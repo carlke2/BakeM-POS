@@ -1,4 +1,4 @@
-export type UserRole = "owner" | "cashier";
+export type UserRole = "owner" | "cashier" | "delivery";
 
 export type AuthUser = {
   id: string;
@@ -9,7 +9,7 @@ export type AuthUser = {
 
 const AUTH_KEYS = ["token", "role", "userName", "adminName", "studentName", "regNo"] as const;
 
-const VALID_ROLES: UserRole[] = ["owner", "cashier"];
+const VALID_ROLES: UserRole[] = ["owner", "cashier", "delivery"];
 
 /** Map legacy role names from older sessions/tokens */
 function normalizeRole(role: string | undefined | null): UserRole | null {
@@ -17,6 +17,7 @@ function normalizeRole(role: string | undefined | null): UserRole | null {
   const normalized = role.toLowerCase();
   if (VALID_ROLES.includes(normalized as UserRole)) return normalized as UserRole;
   if (normalized === "admin") return "owner";
+  if (normalized === "delivery") return "delivery";
   if (normalized === "restaurant" || normalized === "finance") return "cashier";
   return null;
 }

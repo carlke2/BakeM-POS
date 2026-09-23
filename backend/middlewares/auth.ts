@@ -3,7 +3,9 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'slowrise-secret-key';
 
-export type StaffRole = 'owner' | 'cashier';
+export type StaffRole = 'owner' | 'cashier' | 'delivery';
+
+const STAFF_ROLES = new Set<string>(['owner', 'cashier', 'delivery']);
 
 export interface AuthPayload {
   id: string;
@@ -36,6 +38,9 @@ export const ensureAuthenticated = (req: Request, res: Response, next: NextFunct
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    if (!STAFF_ROLES.has(decoded.role)) {
+      return res.status(403).json({ error: 'Staff access required' });
+    }
     req.user = decoded;
     next();
   } catch {

@@ -27,6 +27,9 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
+      if (window.location.pathname.startsWith("/shop")) {
+        return Promise.reject(error);
+      }
       clearAuthSession();
       if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
         window.location.href = "/login";

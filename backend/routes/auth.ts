@@ -6,7 +6,7 @@ import { logAuditEvent } from '@/services/audit';
 
 const router = Router();
 
-const STAFF_ROLES = new Set(['owner', 'cashier']);
+const STAFF_ROLES = new Set(['owner', 'cashier', 'delivery']);
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();

@@ -18,9 +18,12 @@ import kopokopoRoutes from '@/routes/kopokopo';
 import mpesaRoutes from '@/routes/mpesa';
 import attendanceRoutes from '@/routes/attendance';
 import reservationRoutes from '@/routes/reservations';
+import shopAuthRoutes from '@/routes/shopAuth';
+import shopRoutes from '@/routes/shop';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { checkDatabase, connectDatabase } from '@/services/prisma';
 import { startReservationSweeper } from '@/services/stockReservation';
+import { startShopOtpSweeper } from '@/services/shopAuth';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -115,6 +118,8 @@ app.use('/api/kopokopo', kopokopoRoutes);
 app.use('/api/mpesa', mpesaRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api', reservationRoutes);
+app.use('/api/shop/auth', shopAuthRoutes);
+app.use('/api/shop', shopRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
@@ -127,6 +132,7 @@ server.listen(PORT, async () => {
     await connectDatabase();
     console.log('Database connected');
     startReservationSweeper();
+    startShopOtpSweeper();
   } catch (err: any) {
     console.error('Database connection failed on startup:', err?.message || err);
     console.error('Check Supabase is not paused and DATABASE_URL in backend/.env is correct.\n');

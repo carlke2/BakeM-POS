@@ -10,6 +10,7 @@ import {
 } from '@/services/daraja.service';
 import { executeGuestMpesaSale } from '@/routes/pos';
 import { displayReceiptNo } from '@/services/receipt';
+import { confirmShopPayment } from '@/services/shopOrders';
 import {
   AvailabilityError,
   createReservation,
@@ -124,6 +125,19 @@ async function markPaid(
       ...(rawPayload ? { rawPayload } : {}),
     },
   });
+  if (payment.purpose === 'shop_order') {
+    const order = await confirmShopPayment(payment.id, receipt);
+    const payload = {
+      ...paymentView(payment),
+      status: 'success',
+      transactionReference: receipt,
+      shopOrderId: order?.id,
+      shopReceiptNo: order?.receiptNo,
+      posCompleted: false,
+    };
+    emitMpesaUpdate(req, payload);
+    return payload;
+  }
   const sale = await completePosSale(payment.id, receipt);
   const payload = {
     ...paymentView(payment),
