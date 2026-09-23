@@ -68,8 +68,8 @@ const StaffAttendanceReport = () => {
   }, [startDate, endDate]);
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
-      <div className="bg-[#39B54A] text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-4 md:p-8 bg-[#FBF4D0] min-h-screen font-sans space-y-6">
+      <div className="bg-[#B91D2D] text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Clock /> Staff Attendance
@@ -78,7 +78,7 @@ const StaffAttendanceReport = () => {
         </div>
         <div className="text-right">
           <p className="text-white/80 text-xs">Currently checked in today</p>
-          <p className="text-2xl font-bold text-emerald-300">{presentCount}</p>
+          <p className="text-2xl font-bold text-[#FBF4D0]">{presentCount}</p>
         </div>
       </div>
 
@@ -86,23 +86,23 @@ const StaffAttendanceReport = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl p-5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase">Today&apos;s events</p>
-            <p className="text-2xl font-bold text-[#39B54A] mt-1">{today.totalEvents}</p>
+            <p className="text-2xl font-bold text-[#B91D2D] mt-1">{today.totalEvents}</p>
           </div>
           <div className="bg-white rounded-2xl p-5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase">Staff checked in</p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">{today.staffPresent}</p>
+            <p className="text-2xl font-bold text-[#B91D2D] mt-1">{today.staffPresent}</p>
           </div>
           <div className="bg-white rounded-2xl p-5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase">Active staff today</p>
-            <p className="text-2xl font-bold text-[#39B54A] mt-1">{today.summary.length}</p>
+            <p className="text-2xl font-bold text-[#B91D2D] mt-1">{today.summary.length}</p>
           </div>
         </div>
       )}
 
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <Filter size={18} className="text-[#39B54A]" />
-          <span className="font-semibold text-[#39B54A]">Filters</span>
+          <Filter size={18} className="text-[#B91D2D]" />
+          <span className="font-semibold text-[#B91D2D]">Filters</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
@@ -120,7 +120,7 @@ const StaffAttendanceReport = () => {
           <button
             type="button"
             onClick={() => { setStartDate(""); setEndDate(""); }}
-            className="text-sm text-gray-500 hover:text-[#39B54A]"
+            className="text-sm text-gray-500 hover:text-[#B91D2D]"
           >
             Clear dates
           </button>
@@ -149,11 +149,11 @@ const StaffAttendanceReport = () => {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="border-t border-gray-100">
-                    <td className="py-3 px-4 font-semibold text-[#39B54A]">{r.name}</td>
+                    <td className="py-3 px-4 font-semibold text-[#B91D2D]">{r.name}</td>
                     <td className="py-3 px-4 capitalize text-gray-600">{r.role}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        r.type === "check_in" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
+                        r.type === "check_in" ? "bg-[#FFA29D] text-[#5C0101]" : "bg-amber-100 text-amber-800"
                       }`}>
                         {r.type === "check_in" ? <LogIn size={12} /> : <LogOut size={12} />}
                         {r.type === "check_in" ? "Check in" : "Check out"}

@@ -43,8 +43,8 @@ const ExpensesPage = () => {
   const total = expenses.reduce((s, e) => s + e.amount, 0);
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
-      <div className="bg-[#39B54A] text-white rounded-2xl p-6 flex justify-between items-center">
+    <div className="p-4 md:p-8 bg-[#FBF4D0] min-h-screen font-sans space-y-6">
+      <div className="bg-[#B91D2D] text-white rounded-2xl p-6 flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2"><ClipboardList /> Expenses</h2>
           <p className="text-white/80 text-sm mt-1">Record and track operational expenses</p>
@@ -61,7 +61,7 @@ const ExpensesPage = () => {
         </select>
         <input type="number" placeholder="Amount (KES)" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="px-3 py-2 border rounded-lg text-sm" required />
         <input placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="px-3 py-2 border rounded-lg text-sm sm:col-span-2" required />
-        <button type="submit" className="flex items-center justify-center gap-2 bg-[#39B54A] text-white rounded-lg py-2 font-semibold text-sm">
+        <button type="submit" className="flex items-center justify-center gap-2 bg-[#B91D2D] text-white rounded-lg py-2 font-semibold text-sm">
           <Plus size={16} /> Record
         </button>
       </form>

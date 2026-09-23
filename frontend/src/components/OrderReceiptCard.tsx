@@ -40,7 +40,7 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
             <img src={mark} alt="Slow Rise Co" className="h-16 w-16 object-contain" />
           </div>
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-sans">Bakery Receipt</p>
-          <p className="text-base font-black text-[#39B54A] mt-2 tracking-wide">{data.receiptNo}</p>
+          <p className="text-base font-black text-[#B91D2D] mt-2 tracking-wide">{data.receiptNo}</p>
           <p className="text-xs text-gray-500 mt-2 font-sans">
             {data.studentName} · {data.regNo}
           </p>
@@ -49,7 +49,7 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
             {data.paymentMethod ? ` · ${data.paymentMethod}` : ""}
           </p>
           {data.servedBy && (
-            <p className="text-xs text-[#39B54A] font-semibold mt-2 font-sans">
+            <p className="text-xs text-[#B91D2D] font-semibold mt-2 font-sans">
               Served by: {data.servedBy}
             </p>
           )}
@@ -67,7 +67,7 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
         </div>
 
         <div className="border-t border-gray-200 mt-4 pt-3 space-y-1 text-xs font-sans">
-          <div className="flex justify-between font-bold text-emerald-600">
+          <div className="flex justify-between font-bold text-[#B91D2D]">
             <span>Total paid</span>
             <span>{formatMoney(data.total)}</span>
           </div>
@@ -78,14 +78,14 @@ const OrderReceiptCard = ({ data, compact = false }: Props) => {
         <button
           type="button"
           onClick={handlePrint}
-          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#39B54A] text-[#39B54A] font-bold text-sm hover:bg-[#39B54A]/5 transition"
+          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#B91D2D] text-[#B91D2D] font-bold text-sm hover:bg-[#B91D2D]/5 transition"
         >
           <Printer size={16} /> Print
         </button>
         <button
           type="button"
           onClick={handleDownload}
-          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#39B54A] text-white font-bold text-sm hover:bg-[#39B54A]/90 transition"
+          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#B91D2D] text-white font-bold text-sm hover:bg-[#B91D2D]/90 transition"
         >
           <Download size={16} /> Download
         </button>

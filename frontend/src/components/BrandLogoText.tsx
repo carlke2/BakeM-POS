@@ -23,10 +23,10 @@ export function BrandLogoText({ size = "md", variant = "default", className = ""
   }
 
   const isDefault = variant === "default";
-  const arcColor = isDefault ? "text-[#39B54A]" : "text-white";
-  const brandColor = isDefault ? "text-[#148A32]" : "text-white";
-  const dividerBg = isDefault ? "bg-[#39B54A]" : "bg-white/50";
-  const subtextColor = isDefault ? "text-[#148A32]" : "text-white/80";
+  const arcColor = isDefault ? "text-[#B91D2D]" : "text-white";
+  const brandColor = isDefault ? "text-[#5C0101]" : "text-white";
+  const dividerBg = isDefault ? "bg-[#B91D2D]" : "bg-white/50";
+  const subtextColor = isDefault ? "text-[#5C0101]" : "text-white/80";
 
   return (
     <div className={`flex flex-col items-center select-none font-sans ${className}`}>

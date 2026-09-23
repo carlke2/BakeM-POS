@@ -104,7 +104,7 @@ const AdminProfile = () => {
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#39B54A] focus:outline-none p-2.5 rounded-md"
+            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#B91D2D] focus:outline-none p-2.5 rounded-md"
             placeholder="Enter your full name"
             required
           />
@@ -126,7 +126,7 @@ const AdminProfile = () => {
             type="password"
             value={form.currentPassword}
             onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
-            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#39B54A] focus:outline-none p-2.5 rounded-md"
+            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#B91D2D] focus:outline-none p-2.5 rounded-md"
             placeholder="Required only when changing password"
             autoComplete="current-password"
           />
@@ -138,7 +138,7 @@ const AdminProfile = () => {
             type="password"
             value={form.newPassword}
             onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#39B54A] focus:outline-none p-2.5 rounded-md"
+            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#B91D2D] focus:outline-none p-2.5 rounded-md"
             placeholder="Leave blank to keep current password"
             autoComplete="new-password"
           />
@@ -150,7 +150,7 @@ const AdminProfile = () => {
             type="password"
             value={form.confirmPassword}
             onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#39B54A] focus:outline-none p-2.5 rounded-md"
+            className="w-full border border-gray-300 focus:ring-2 focus:ring-[#B91D2D] focus:outline-none p-2.5 rounded-md"
             autoComplete="new-password"
           />
         </div>
@@ -158,7 +158,7 @@ const AdminProfile = () => {
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center justify-center gap-2 bg-[#148A32] hover:bg-[#0F6E28] disabled:opacity-60 text-white py-2.5 rounded-md transition"
+          className="flex items-center justify-center gap-2 bg-[#5C0101] hover:bg-[#5C0101] disabled:opacity-60 text-white py-2.5 rounded-md transition"
         >
           <Save size={18} />
           {saving ? "Saving..." : "Save Changes"}

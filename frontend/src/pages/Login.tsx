@@ -9,7 +9,7 @@ import logo from "@/assets/LOGO.png";
 import { getDashboardPath, useAuth } from "@/context/AuthContext";
 import type { AuthUser, UserRole } from "@/services/authStorage";
 
-const BRAND = "#39B54A";
+const BRAND = "#B91D2D";
 
 const Login: React.FC = () => {
   const { status, user, login, refreshSession } = useAuth();
@@ -76,13 +76,13 @@ const Login: React.FC = () => {
   };
 
   const inputCls =
-    "w-full px-3 py-3 bg-gray-100 border-2 border-transparent focus:border-[#39B54A]/30 focus:bg-white rounded-xl outline-none text-sm transition";
+    "w-full px-3 py-3 bg-gray-100 border-2 border-transparent focus:border-[#B91D2D]/30 focus:bg-white rounded-xl outline-none text-sm transition";
 
   return (
-    <div className="min-h-screen bg-[#E8F6EC] p-4 font-sans relative overflow-y-auto">
+    <div className="min-h-screen bg-[#FBF4D0] p-4 font-sans relative overflow-y-auto">
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-[#39B54A]/10 blur-[120px]" />
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] rounded-full bg-[#39B54A]/5 blur-[120px]" />
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-[#B91D2D]/10 blur-[120px]" />
+        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] rounded-full bg-[#B91D2D]/5 blur-[120px]" />
       </div>
 
       <div className="min-h-screen flex items-center justify-center py-8">
@@ -97,7 +97,7 @@ const Login: React.FC = () => {
                 alt="Slow Rise Co"
                 className="w-40 h-auto object-contain mb-3"
               />
-              <h2 className="text-xl font-bold text-[#39B54A]">Welcome to Slow Rise Co</h2>
+              <h2 className="text-xl font-bold text-[#B91D2D]">Welcome to Slow Rise Co</h2>
               <p className="text-slate-500 text-xs mt-1 text-center">
                 Staff login · Owner & cashier email and password
               </p>
@@ -127,7 +127,7 @@ const Login: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#39B54A]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#B91D2D]"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -154,7 +154,7 @@ const Login: React.FC = () => {
               <p className="text-center">
                 <Link
                   to="/forgot-password"
-                  className="text-xs font-semibold text-[#39B54A] hover:underline"
+                  className="text-xs font-semibold text-[#B91D2D] hover:underline"
                 >
                   Forgot password?
                 </Link>

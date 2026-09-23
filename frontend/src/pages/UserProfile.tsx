@@ -39,10 +39,10 @@ const UserProfile = () => {
   ];
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans">
+    <div className="p-4 md:p-8 bg-[#FBF4D0] min-h-screen font-sans">
       <div className="max-w-lg mx-auto">
-        <div className="bg-[#39B54A] text-white rounded-2xl p-6 mb-6 text-center">
-          <div className="w-20 h-20 rounded-full bg-white text-[#39B54A] flex items-center justify-center font-bold text-3xl mx-auto mb-3">
+        <div className="bg-[#B91D2D] text-white rounded-2xl p-6 mb-6 text-center">
+          <div className="w-20 h-20 rounded-full bg-white text-[#B91D2D] flex items-center justify-center font-bold text-3xl mx-auto mb-3">
             {name.charAt(0).toUpperCase()}
           </div>
           <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
@@ -53,7 +53,7 @@ const UserProfile = () => {
           {fields.map((f) => (
             <div key={f.label} className="px-5 py-4 flex justify-between">
               <span className="text-sm text-gray-500">{f.label}</span>
-              <span className="text-sm font-semibold text-[#39B54A]">{f.value}</span>
+              <span className="text-sm font-semibold text-[#B91D2D]">{f.value}</span>
             </div>
           ))}
         </div>

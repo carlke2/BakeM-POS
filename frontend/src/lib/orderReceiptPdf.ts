@@ -47,7 +47,7 @@ export async function buildReceiptPdf(data: OrderReceiptData, logoUrl?: string):
     }
   }
 
-  doc.setTextColor(20, 138, 50);
+  doc.setTextColor(92, 1, 1);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.text("Bakery Receipt", centerX, y, { align: "center" });
@@ -59,9 +59,9 @@ export async function buildReceiptPdf(data: OrderReceiptData, logoUrl?: string):
   doc.text("Slow Rise Co", centerX, y, { align: "center" });
   y += 8;
 
-  doc.setFillColor(232, 246, 236);
+  doc.setFillColor(251, 244, 208);
   doc.roundedRect(8, y - 4, pageWidth - 16, 10, 2, 2, "F");
-  doc.setTextColor(20, 138, 50);
+  doc.setTextColor(92, 1, 1);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text(data.receiptNo, centerX, y + 2.5, { align: "center" });
@@ -106,7 +106,7 @@ export async function buildReceiptPdf(data: OrderReceiptData, logoUrl?: string):
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(5, 150, 105);
+  doc.setTextColor(185, 29, 45);
   doc.text(`Total paid: ${formatMoney(data.total)}`, centerX, y, { align: "center" });
   y += 5;
 

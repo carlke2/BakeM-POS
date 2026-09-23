@@ -116,7 +116,7 @@ const StaffAttendanceTerminal = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#39B54A] text-white font-sans">
+    <div className="min-h-screen bg-[#B91D2D] text-white font-sans">
       <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-6">
         <div className="text-center space-y-3 pt-4">
           <img src={logo} alt="Slow Rise Co" className="h-16 w-16 rounded-2xl mx-auto" />
@@ -218,7 +218,7 @@ const StaffAttendanceTerminal = () => {
                 <p
                   className={`text-sm font-semibold px-3 py-2 rounded-xl inline-flex items-center gap-2 ${
                     selected.nextAction === "check_in"
-                      ? "bg-emerald-500/20 text-emerald-100"
+                      ? "bg-[#FFA29D]/25 text-[#FBF4D0]"
                       : "bg-amber-500/20 text-amber-100"
                   }`}
                 >
@@ -232,7 +232,7 @@ const StaffAttendanceTerminal = () => {
                   type="button"
                   onClick={clock}
                   disabled={clocking}
-                  className="w-full py-5 rounded-2xl bg-white text-[#39B54A] font-bold text-lg flex items-center justify-center gap-3 hover:bg-[#E8F6EC] disabled:opacity-50 transition"
+                  className="w-full py-5 rounded-2xl bg-white text-[#B91D2D] font-bold text-lg flex items-center justify-center gap-3 hover:bg-[#FBF4D0] disabled:opacity-50 transition"
                 >
                   {clocking ? <Loader2 className="animate-spin" size={28} /> : <Clock size={28} />}
                   {clocking
@@ -247,7 +247,7 @@ const StaffAttendanceTerminal = () => {
                 <div
                   className={`rounded-2xl p-5 border ${
                     lastResult.type === "check_in"
-                      ? "bg-emerald-500/15 border-emerald-400/30"
+                      ? "bg-[#FFA29D]/20 border-[#E5C48D]/60"
                       : "bg-amber-500/15 border-amber-400/30"
                   }`}
                 >

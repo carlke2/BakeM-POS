@@ -54,8 +54,8 @@ const ReceiptsPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
-      <div className="bg-[#39B54A] text-white rounded-2xl p-6 flex justify-between items-center">
+    <div className="p-4 md:p-8 bg-[#FBF4D0] min-h-screen font-sans space-y-6">
+      <div className="bg-[#B91D2D] text-white rounded-2xl p-6 flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2"><Receipt /> POS Receipts</h2>
           <p className="text-white/80 text-sm mt-1">Bakery sales and transaction history</p>
@@ -79,7 +79,7 @@ const ReceiptsPage = () => {
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition text-left"
               >
                 <div>
-                  <p className="font-semibold text-[#39B54A] capitalize">
+                  <p className="font-semibold text-[#B91D2D] capitalize">
                     {(r.paymentMethod || "cash").toLowerCase() === "mpesa" ? "M-Pesa" : "Cash"}
                     {r.cashierName ? (
                       <span className="text-gray-400 font-normal"> · {r.cashierName}</span>
@@ -90,8 +90,8 @@ const ReceiptsPage = () => {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-green-600">KES {r.totalAmount.toLocaleString()}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === "completed" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>{r.status}</span>
+                  <p className="font-bold text-[#5C0101]">KES {r.totalAmount.toLocaleString()}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === "completed" ? "bg-[#FFA29D] text-[#5C0101]" : "bg-gray-100 text-gray-600"}`}>{r.status}</span>
                 </div>
               </button>
               {expanded === r.id && (
@@ -106,14 +106,14 @@ const ReceiptsPage = () => {
                     <button
                       type="button"
                       onClick={() => handlePrint(r)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#39B54A] border border-[#39B54A]/20 rounded-lg hover:bg-[#39B54A]/5"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B91D2D] border border-[#B91D2D]/20 rounded-lg hover:bg-[#B91D2D]/5"
                     >
                       <Printer size={14} /> Print
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDownload(r)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#39B54A] rounded-lg hover:bg-[#39B54A]/90"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#B91D2D] rounded-lg hover:bg-[#B91D2D]/90"
                     >
                       <Download size={14} /> Download PDF
                     </button>

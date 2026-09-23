@@ -52,7 +52,7 @@ const formatKes = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 const statusBadge = (status: string) => {
   const s = (status || "").toLowerCase();
   if (["success", "received", "complete", "completed", "paid"].includes(s)) {
-    return "bg-emerald-100 text-emerald-700";
+    return "bg-[#FFA29D] text-[#5C0101]";
   }
   if (["failed", "error", "reversed", "cancelled", "superseded"].includes(s)) {
     return "bg-rose-100 text-rose-700";
@@ -137,9 +137,9 @@ const matchesSource = (row: CollectionRow, source: SourceFilter): boolean => {
 const channelBadge = (channel: string) => {
   switch (channel) {
     case "till":
-      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      return "bg-[#FBF4D0] text-[#5C0101] border-[#E5C48D]";
     case "stk":
-      return "bg-[#E8F6EC] text-[#0F6E28] border-[#D4F0DB]";
+      return "bg-[#FBF4D0] text-[#5C0101] border-[#E5C48D]";
     case "wallet":
       return "bg-sky-50 text-sky-700 border-sky-100";
     case "cash":
@@ -212,7 +212,7 @@ const PayloadModal = ({
       <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <div>
-            <h3 className="font-bold text-[#39B54A] flex items-center gap-2">
+            <h3 className="font-bold text-[#B91D2D] flex items-center gap-2">
               <FileJson size={18} /> Transaction payloads
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -233,7 +233,7 @@ const PayloadModal = ({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search name, adm no, ref..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#B91D2D] outline-none"
                 />
               </div>
             </div>
@@ -247,10 +247,10 @@ const PayloadModal = ({
                     type="button"
                     onClick={() => r.id && onSelect(r.id)}
                     className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition ${
-                      selected?.id === r.id ? "bg-[#E8F6EC] border-l-4 border-l-[#39B54A]" : ""
+                      selected?.id === r.id ? "bg-[#FBF4D0] border-l-4 border-l-[#B91D2D]" : ""
                     }`}
                   >
-                    <p className="font-semibold text-sm text-[#39B54A] truncate">
+                    <p className="font-semibold text-sm text-[#B91D2D] truncate">
                       {r.name || r.method || "Transaction"}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
@@ -269,19 +269,19 @@ const PayloadModal = ({
           <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {selected && (
               <div className="px-4 py-2 border-b border-gray-50 bg-gray-50/80 text-xs text-gray-600 shrink-0">
-                <span className="font-semibold text-[#39B54A]">{selected.name || "—"}</span>
+                <span className="font-semibold text-[#B91D2D]">{selected.name || "—"}</span>
                 {selected.admNo && <span> · {selected.admNo}</span>}
                 <span> · {selected.method}</span>
               </div>
             )}
             <div className="flex-1 overflow-auto p-4 bg-slate-950">
-              <pre className="text-xs text-emerald-300 font-mono whitespace-pre-wrap break-words">{json}</pre>
+              <pre className="text-xs text-[#FFA29D] font-mono whitespace-pre-wrap break-words">{json}</pre>
             </div>
             <div className="p-3 border-t border-gray-100 flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={copyJson}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#39B54A] border border-[#39B54A]/20 rounded-lg hover:bg-[#39B54A]/5"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#B91D2D] border border-[#B91D2D]/20 rounded-lg hover:bg-[#B91D2D]/5"
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
                 {copied ? "Copied" : "Copy JSON"}
@@ -332,7 +332,7 @@ const FindPaymentModal = ({
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h3 className="font-bold text-[#39B54A] flex items-center gap-2">
+            <h3 className="font-bold text-[#B91D2D] flex items-center gap-2">
               <Search size={18} /> Find M-Pesa payment
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">Search by M-Pesa code, phone, or reference</p>
@@ -350,7 +350,7 @@ const FindPaymentModal = ({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. QGH7XABCD or 2547..."
               autoFocus
-              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
+              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#B91D2D] outline-none"
             />
           </div>
 
@@ -382,7 +382,7 @@ const FindPaymentModal = ({
               >
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <p className="font-semibold text-[#39B54A]">{formatKes(r.amount)}</p>
+                    <p className="font-semibold text-[#B91D2D]">{formatKes(r.amount)}</p>
                     <p className="text-xs font-mono text-gray-500">{r.transactionReference || r.id}</p>
                     <p className="text-xs text-gray-400">{r.phone || "—"} · {new Date(r.date).toLocaleString()}</p>
                   </div>
@@ -453,7 +453,7 @@ const RegisterManualModal = ({
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h3 className="font-bold text-[#39B54A] flex items-center gap-2">
+            <h3 className="font-bold text-[#B91D2D] flex items-center gap-2">
               <ClipboardPlus size={18} /> Register till payment
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -477,7 +477,7 @@ const RegisterManualModal = ({
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. UG7QOA5LRC"
-              className="mt-1 w-full px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
+              className="mt-1 w-full px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#B91D2D] outline-none"
             />
           </div>
 
@@ -489,7 +489,7 @@ const RegisterManualModal = ({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="e.g. 1"
-              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
+              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#B91D2D] outline-none"
             />
           </div>
 
@@ -499,7 +499,7 @@ const RegisterManualModal = ({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Parent M-Pesa number"
-              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
+              className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#B91D2D] outline-none"
             />
           </div>
 
@@ -515,7 +515,7 @@ const RegisterManualModal = ({
               type="button"
               onClick={handleRegister}
               disabled={submitting}
-              className="flex-1 py-2.5 text-sm font-semibold bg-[#39B54A] text-white rounded-xl hover:bg-[#39B54A]/90 disabled:opacity-50"
+              className="flex-1 py-2.5 text-sm font-semibold bg-[#B91D2D] text-white rounded-xl hover:bg-[#B91D2D]/90 disabled:opacity-50"
             >
               {submitting ? "Registering..." : "Register payment"}
             </button>
@@ -704,7 +704,7 @@ const CollectionsPage = () => {
   }, [filteredRows, hasActiveFilters, serverSummary]);
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
+    <div className="p-4 md:p-8 bg-[#FBF4D0] min-h-screen font-sans space-y-6">
       {webhookStatus && (webhookStatus.webhookLikelyStale || webhookStatus.paymentsToday === 0) && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
           <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
@@ -721,7 +721,7 @@ const CollectionsPage = () => {
         </div>
       )}
 
-      <div className="bg-[#39B54A] text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-[#B91D2D] text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Receipt /> Collections Report
@@ -743,7 +743,7 @@ const CollectionsPage = () => {
             <button
               type="button"
               onClick={() => setFindPaymentOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-500/90 hover:bg-emerald-500 rounded-xl text-sm font-semibold"
+              className="flex items-center gap-2 px-4 py-2 bg-[#FFA29D] hover:bg-[#E5C48D] text-[#5C0101] rounded-xl text-sm font-semibold"
             >
               <Search size={16} /> Find M-Pesa payment
             </button>
@@ -771,7 +771,7 @@ const CollectionsPage = () => {
               ) : null}
             </p>
             <p className="text-lg font-bold">
-              <span className="text-emerald-300" title="Unique M-Pesa till receipts">
+              <span className="text-[#FBF4D0]" title="Unique M-Pesa till receipts">
                 {formatKes(totals.topUps)}
               </span>
               <span className="text-white/80"> · </span>
@@ -796,14 +796,14 @@ const CollectionsPage = () => {
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Filter size={18} className="text-[#39B54A]" />
-            <span className="font-semibold text-[#39B54A]">Filters</span>
+            <Filter size={18} className="text-[#B91D2D]" />
+            <span className="font-semibold text-[#B91D2D]">Filters</span>
           </div>
           {hasActiveFilters && (
             <button
               type="button"
               onClick={clearFilters}
-              className="text-xs font-semibold text-gray-500 hover:text-[#39B54A]"
+              className="text-xs font-semibold text-gray-500 hover:text-[#B91D2D]"
             >
               Clear all
             </button>
@@ -824,8 +824,8 @@ const CollectionsPage = () => {
                 onClick={() => setFilters((f) => ({ ...f, source: opt.value }))}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                   active
-                    ? "bg-[#39B54A] text-white border-[#39B54A]"
-                    : "bg-white text-[#39B54A] border-gray-200 hover:border-[#39B54A]/40"
+                    ? "bg-[#B91D2D] text-white border-[#B91D2D]"
+                    : "bg-white text-[#B91D2D] border-gray-200 hover:border-[#B91D2D]/40"
                 }`}
               >
                 {opt.label}
@@ -844,13 +844,13 @@ const CollectionsPage = () => {
               value={filters.search}
               onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
               placeholder="Search name, adm no, ref, phone..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#39B54A] outline-none"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#B91D2D] outline-none"
             />
           </div>
           <select
             value={filters.status}
             onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as StatusFilter }))}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#B91D2D] outline-none"
           >
             <option value="all">All statuses</option>
             <option value="success">Success</option>
@@ -861,14 +861,14 @@ const CollectionsPage = () => {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#B91D2D] outline-none"
             title="From date"
           />
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#39B54A] outline-none"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#B91D2D] outline-none"
             title="To date"
           />
         </div>
@@ -889,7 +889,7 @@ const CollectionsPage = () => {
       ) : filteredRows.length === 0 ? (
         <div className="bg-white rounded-2xl p-8 text-center text-gray-500">
           No records match your filters.{" "}
-          <button type="button" onClick={clearFilters} className="text-[#39B54A] font-semibold hover:underline">
+          <button type="button" onClick={clearFilters} className="text-[#B91D2D] font-semibold hover:underline">
             Clear filters
           </button>
         </div>
@@ -921,7 +921,7 @@ const CollectionsPage = () => {
                 return (
                   <tr key={`${r.id || r.transactionRef || r.date}-${idx}`} className="border-t border-gray-100 align-top">
                     <td className="py-3 px-4 text-gray-500">{idx + 1}</td>
-                    <td className="py-3 px-4 font-semibold text-[#39B54A]">{r.name || "-"}</td>
+                    <td className="py-3 px-4 font-semibold text-[#B91D2D]">{r.name || "-"}</td>
                     <td className="py-3 px-4 text-gray-600 font-mono text-xs">{r.admNo || "-"}</td>
                     <td className="py-3 px-4">{r.mpesaNumber || "-"}</td>
                     <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
@@ -951,7 +951,7 @@ const CollectionsPage = () => {
                       )}
                     </td>
                     <td className={`py-3 px-4 text-right font-bold whitespace-nowrap ${
-                      r.amount >= 0 ? "text-emerald-600" : "text-rose-600"
+                      r.amount >= 0 ? "text-[#B91D2D]" : "text-rose-600"
                     }`}>
                       {r.amount !== 0 ? (
                         <>
@@ -972,7 +972,7 @@ const CollectionsPage = () => {
                         onClick={() => r.id && openPayloads(r.id)}
                         disabled={!r.payload}
                         title="View metadata payload"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[#39B54A] border border-[#39B54A]/20 rounded-lg hover:bg-[#39B54A]/5 disabled:opacity-30"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[#B91D2D] border border-[#B91D2D]/20 rounded-lg hover:bg-[#B91D2D]/5 disabled:opacity-30"
                       >
                         <FileJson size={14} />
                       </button>

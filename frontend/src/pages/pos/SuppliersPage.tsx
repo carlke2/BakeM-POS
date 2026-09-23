@@ -49,7 +49,7 @@ const emptySupplier = {
 };
 
 const inputCls =
-  "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#39B54A] outline-none";
+  "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#B91D2D] outline-none";
 
 const SuppliersPage = () => {
   const { user } = useAuth();
@@ -201,11 +201,11 @@ const SuppliersPage = () => {
   }
 
   return (
-    <div className="p-4 md:p-8 bg-[#E8F6EC] min-h-screen font-sans space-y-6">
-      <div className="bg-[#39B54A] text-white rounded-2xl p-6 shadow-sm border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-4 md:p-8 bg-[#FBF4D0] min-h-screen font-sans space-y-6">
+      <div className="bg-[#B91D2D] text-white rounded-2xl p-6 shadow-sm border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black flex items-center gap-2">
-            <Truck className="text-[#39B54A]" /> Suppliers
+            <Truck className="text-[#B91D2D]" /> Suppliers
           </h2>
           <p className="text-white/80 text-sm mt-1">
             Register vendors who deliver ingredients. Link them when recording stock purchases on Inventory.
@@ -214,7 +214,7 @@ const SuppliersPage = () => {
         {canEdit && (
           <button
             onClick={openCreate}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#39B54A] hover:bg-[#148A32] rounded-xl font-bold text-sm transition"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#B91D2D] hover:bg-[#5C0101] rounded-xl font-bold text-sm transition"
           >
             <Plus size={16} /> Add Supplier
           </button>
@@ -224,11 +224,11 @@ const SuppliersPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider font-extrabold">Active Suppliers</p>
-          <p className="text-2xl font-black text-[#39B54A] mt-1">{suppliers.length}</p>
+          <p className="text-2xl font-black text-[#B91D2D] mt-1">{suppliers.length}</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider font-extrabold">Purchase Records</p>
-          <p className="text-2xl font-black text-[#39B54A] mt-1">{totalPurchases}</p>
+          <p className="text-2xl font-black text-[#B91D2D] mt-1">{totalPurchases}</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider font-extrabold">How it works</p>
@@ -245,13 +245,13 @@ const SuppliersPage = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search name, phone, email, contact..."
-            className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39B54A]"
+            className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B91D2D]"
           />
         </div>
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
-            className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-[#39B54A] flex items-center gap-1"
+            className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-[#B91D2D] flex items-center gap-1"
           >
             <Filter size={14} /> Clear
           </button>
@@ -282,7 +282,7 @@ const SuppliersPage = () => {
               filteredSuppliers.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50/50">
                   <td className="px-5 py-4">
-                    <p className="font-extrabold text-[#39B54A]">{s.name}</p>
+                    <p className="font-extrabold text-[#B91D2D]">{s.name}</p>
                     {s.address && (
                       <p className="text-xs text-gray-500 mt-0.5 flex items-start gap-1">
                         <MapPin size={12} className="shrink-0 mt-0.5" /> {s.address}
@@ -311,14 +311,14 @@ const SuppliersPage = () => {
                     )}
                     {!s.phone && !s.email && "—"}
                   </td>
-                  <td className="px-5 py-4 text-right font-bold text-[#39B54A]">
+                  <td className="px-5 py-4 text-right font-bold text-[#B91D2D]">
                     {s._count?.stockMovements ?? 0}
                   </td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => toggleHistory(s.id)}
-                        className="p-2 rounded-lg text-[#148A32] hover:bg-[#E8F6EC]"
+                        className="p-2 rounded-lg text-[#5C0101] hover:bg-[#FBF4D0]"
                         title="Purchase history"
                       >
                         <Package size={16} />
@@ -353,7 +353,7 @@ const SuppliersPage = () => {
       {historySupplierId && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-extrabold text-[#39B54A]">
+            <h3 className="font-extrabold text-[#B91D2D]">
               Purchase history - {historySupplier?.name}
             </h3>
             <button
@@ -389,7 +389,7 @@ const SuppliersPage = () => {
                     <td className="px-5 py-3 text-gray-600">
                       {new Date(m.createdAt).toLocaleString()}
                     </td>
-                    <td className="px-5 py-3 font-semibold text-[#39B54A]">{m.inventoryItem.name}</td>
+                    <td className="px-5 py-3 font-semibold text-[#B91D2D]">{m.inventoryItem.name}</td>
                     <td className="px-5 py-3 text-right">
                       {m.quantity} {m.inventoryItem.unit}
                     </td>
@@ -410,7 +410,7 @@ const SuppliersPage = () => {
             className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-xl"
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-[#39B54A]">
+              <h3 className="font-extrabold text-[#B91D2D]">
                 {editId ? "Edit Supplier" : "Add Supplier"}
               </h3>
               <button type="button" onClick={closeForm} className="p-1 rounded-lg hover:bg-gray-100">
@@ -463,7 +463,7 @@ const SuppliersPage = () => {
             </div>
             <button
               type="submit"
-              className="w-full py-3 bg-[#39B54A] hover:bg-[#39B54A]/90 text-white rounded-xl font-extrabold text-sm"
+              className="w-full py-3 bg-[#B91D2D] hover:bg-[#B91D2D]/90 text-white rounded-xl font-extrabold text-sm"
             >
               {editId ? "Save Changes" : "Add Supplier"}
             </button>
