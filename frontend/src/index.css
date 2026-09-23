@@ -74,3 +74,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* SweetAlert2 success icon defaults to #a5dc86. Use maroon so it stays in the palette and stays distinct from the red error icon. */
+.swal2-icon.swal2-success {
+  border-color: #5c0101;
+  color: #5c0101;
+}
+.swal2-icon.swal2-success [class^="swal2-success-line"] {
+  background-color: #5c0101;
+}
+.swal2-icon.swal2-success .swal2-success-ring {
+  border: 0.25em solid rgba(92, 1, 1, 0.3);
+}
+.swal2-timer-progress-bar {
+  background: #b91d2d;
+}
+.swal2-icon.swal2-warning {
+  border-color: #b91d2d;
+  color: #b91d2d;
+}

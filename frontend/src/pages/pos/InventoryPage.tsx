@@ -336,7 +336,7 @@ const InventoryPage = () => {
                 <select
                   value={movement.supplierId}
                   onChange={(e) => setMovement({ ...movement, supplierId: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-white border border-[#A8E0B4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B91D2D] font-semibold"
+                  className="w-full px-3 py-2.5 bg-white border border-[#E5C48D] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B91D2D] font-semibold"
                   required
                 >
                   <option value="">Select supplier</option>
@@ -354,7 +354,7 @@ const InventoryPage = () => {
                   placeholder="e.g. INV-2026-042"
                   value={movement.reference}
                   onChange={(e) => setMovement({ ...movement, reference: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-white border border-[#A8E0B4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B91D2D]"
+                  className="w-full px-3 py-2.5 bg-white border border-[#E5C48D] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B91D2D]"
                 />
               </div>
             </div>
