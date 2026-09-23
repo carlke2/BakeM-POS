@@ -1,4 +1,5 @@
 import prisma from '@/services/prisma';
+import { snapQty } from '@/services/stockReservation';
 
 export type KitchenBoardDish = {
   id: string;
@@ -58,7 +59,7 @@ export async function getKitchenBoard(): Promise<KitchenBoardDish[]> {
   return items.map((item) => {
     const batchYield = item.batchYield!;
     const ingredients = item.ingredients.map((ing) => {
-      const available = ing.inventoryItem.stockLevel - ing.inventoryItem.reservedQuantity;
+      const available = snapQty(ing.inventoryItem.stockLevel - snapQty(ing.inventoryItem.reservedQuantity));
       const batchesPossible =
         ing.quantity > 0 ? Math.floor(Math.max(0, available) / ing.quantity) : 0;
       return {

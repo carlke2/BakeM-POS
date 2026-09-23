@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { snapQty } from '@/services/stockReservation';
 
 type OrderLine = { menuItemId: string; quantity: number; price?: number };
 
@@ -36,7 +37,7 @@ export async function recordProduction(
   for (const ing of menuItem.ingredients) {
     const needed = ing.quantity * count;
     const current = lockedById.get(ing.inventoryItemId);
-    const available = (current?.stockLevel ?? 0) - (current?.reservedQuantity ?? 0);
+    const available = snapQty((current?.stockLevel ?? 0) - snapQty(current?.reservedQuantity ?? 0));
     if (available + 1e-8 < needed) {
       throw new Error(`INSUFFICIENT_INGREDIENT:${current?.name || ing.inventoryItem.name}`);
     }

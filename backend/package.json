@@ -8,6 +8,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
+    "db:clear-reserved-residue": "ts-node -r tsconfig-paths/register scripts/clear-reserved-residue.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

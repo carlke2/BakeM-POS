@@ -72,7 +72,17 @@ type PreparedLine = {
   finishedReserved: number;
 };
 
-const roundQty = (value: number) => Math.round(value * 10000) / 10000;
+const QTY_SCALE = 10000;
+const QTY_EPSILON = 0.0001;
+
+/** Round to 4 decimal places. Anything smaller than 0.0001 is float dust and becomes 0. */
+export function snapQty(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (Math.abs(value) < QTY_EPSILON) return 0;
+  return Math.round(value * QTY_SCALE) / QTY_SCALE;
+}
+
+const roundQty = snapQty;
 
 /** Remote Postgres (session pooler) often needs longer than Prisma's 5s interactive default. */
 const txOptions = { maxWait: 15_000, timeout: 20_000 };
@@ -142,16 +152,16 @@ async function prepareLines(
       batchYield: menu.batchYield,
       requested: item.quantity,
       finishedStock: portionTracked ? (menu.stockLevel ?? 0) : null,
-      finishedReserved: finishedReserved.get(menu.id) || 0,
+      finishedReserved: snapQty(finishedReserved.get(menu.id) || 0),
       ingredients: portionTracked
         ? []
         : menu.ingredients.map((ingredient) => ({
             inventoryItemId: ingredient.inventoryItemId,
             name: ingredient.inventoryItem.name,
             unit: ingredient.inventoryItem.unit,
-            stockLevel: ingredient.inventoryItem.stockLevel,
-            reservedQuantity: ingredient.inventoryItem.reservedQuantity,
-            perUnit: ingredient.quantity,
+            stockLevel: snapQty(ingredient.inventoryItem.stockLevel),
+            reservedQuantity: snapQty(ingredient.inventoryItem.reservedQuantity),
+            perUnit: snapQty(ingredient.quantity),
           })),
     };
   });
@@ -205,7 +215,9 @@ function maxForLine(
   let max = Number.POSITIVE_INFINITY;
   for (const ingredient of line.ingredients) {
     if (ingredient.perUnit <= 0) continue;
-    const remaining = (pool.get(ingredient.inventoryItemId) || 0) - (usedByOthers.get(ingredient.inventoryItemId) || 0);
+    const remaining = snapQty(
+      (pool.get(ingredient.inventoryItemId) || 0) - (usedByOthers.get(ingredient.inventoryItemId) || 0),
+    );
     max = Math.min(max, remaining / ingredient.perUnit);
   }
   if (!Number.isFinite(max)) return null;
@@ -276,6 +288,19 @@ function aggregateHolds(lines: PreparedLine[]) {
     }
   }
   return holds;
+}
+
+async function applyReservedDelta(tx: Tx, inventoryItemId: string, delta: number) {
+  const change = snapQty(delta);
+  if (change === 0) return;
+  await tx.$executeRaw(Prisma.sql`
+    UPDATE inventory_items
+    SET reserved_quantity = CASE
+      WHEN reserved_quantity + ${change} < ${QTY_EPSILON} THEN 0::double precision
+      ELSE round((reserved_quantity + ${change})::numeric, 4)::double precision
+    END
+    WHERE id = ${inventoryItemId}
+  `);
 }
 
 async function lockInventory(tx: Tx, ids: string[]) {
@@ -356,14 +381,10 @@ async function writeReservation(
     include: { items: true, holds: true },
   });
 
-  await Promise.all(
-    [...holds.entries()].map(([inventoryItemId, quantity]) =>
-      tx.inventoryItem.update({
-        where: { id: inventoryItemId },
-        data: { reservedQuantity: { increment: quantity } },
-      }),
-    ),
-  );
+  await lockInventory(tx, [...holds.keys()]);
+  for (const [inventoryItemId, quantity] of holds) {
+    await applyReservedDelta(tx, inventoryItemId, quantity);
+  }
 
   return { reservation, availability };
 }
@@ -400,15 +421,9 @@ export async function releaseReservation(id: string, reason: string) {
     if (reservation.status !== 'active') throw new Error('RESERVATION_NOT_ACTIVE');
 
     await lockInventory(tx, reservation.holds.map((hold) => hold.inventoryItemId));
-    await Promise.all(
-      reservation.holds.map((hold) =>
-        tx.$executeRaw(Prisma.sql`
-          UPDATE inventory_items
-          SET reserved_quantity = GREATEST(0, reserved_quantity - ${hold.quantity})
-          WHERE id = ${hold.inventoryItemId}
-        `),
-      ),
-    );
+    for (const hold of reservation.holds) {
+      await applyReservedDelta(tx, hold.inventoryItemId, -hold.quantity);
+    }
 
     return tx.stockReservation.update({
       where: { id },
@@ -437,15 +452,9 @@ export async function settleReservation(tx: Tx, id: string) {
   if (reservation.status !== 'active') throw new Error('RESERVATION_NOT_ACTIVE');
 
   await lockInventory(tx, reservation.holds.map((hold) => hold.inventoryItemId));
-  await Promise.all(
-    reservation.holds.map((hold) =>
-      tx.$executeRaw(Prisma.sql`
-        UPDATE inventory_items
-        SET reserved_quantity = GREATEST(0, reserved_quantity - ${hold.quantity})
-        WHERE id = ${hold.inventoryItemId}
-      `),
-    ),
-  );
+  for (const hold of reservation.holds) {
+    await applyReservedDelta(tx, hold.inventoryItemId, -hold.quantity);
+  }
 
   return tx.stockReservation.update({
     where: { id },
@@ -488,11 +497,9 @@ export async function commitReservation(id: string, userId: string) {
       });
       await tx.inventoryItem.update({
         where: { id: hold.inventoryItemId },
-        data: {
-          stockLevel: { decrement: hold.quantity },
-          reservedQuantity: { decrement: hold.quantity },
-        },
+        data: { stockLevel: { decrement: hold.quantity } },
       });
+      await applyReservedDelta(tx, hold.inventoryItemId, -hold.quantity);
     }
 
     const menus = await tx.menuItem.findMany({
@@ -565,24 +572,10 @@ export async function replaceReservationItems(id: string, items: RequestedLine[]
       });
     }
 
-    const touched = [...ids];
-    for (const inventoryItemId of touched) {
+    for (const inventoryItemId of ids) {
       const next = holds.get(inventoryItemId) || 0;
       const prev = current.get(inventoryItemId) || 0;
-      const delta = roundQty(next - prev);
-      if (delta === 0) continue;
-      if (delta > 0) {
-        await tx.inventoryItem.update({
-          where: { id: inventoryItemId },
-          data: { reservedQuantity: { increment: delta } },
-        });
-      } else {
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE inventory_items
-          SET reserved_quantity = GREATEST(0, reserved_quantity - ${Math.abs(delta)})
-          WHERE id = ${inventoryItemId}
-        `);
-      }
+      await applyReservedDelta(tx, inventoryItemId, next - prev);
     }
 
     const updated = await tx.stockReservation.findUnique({

@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { snapQty } from '@/services/stockReservation';
 import { allocateSalesToBatches } from '@/services/production';
 
 type OrderLine = { menuItemId: string; quantity: number; price?: number };
@@ -164,7 +165,7 @@ export async function deductStockForOrder(
   for (const [inventoryItemId, { qty, name }] of ingredientTotals) {
     const item = inventoryById.get(inventoryItemId);
     if (!item) continue;
-    const free = item.stockLevel - item.reservedQuantity + (ownHolds.get(inventoryItemId) || 0);
+    const free = snapQty(item.stockLevel - snapQty(item.reservedQuantity) + (ownHolds.get(inventoryItemId) || 0));
     if (free + 1e-8 < qty) {
       throw new Error(`INSUFFICIENT_INGREDIENT:${name}`);
     }
