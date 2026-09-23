@@ -154,10 +154,12 @@ model InventoryItem {
   unit         String // kg, liters, pieces
   stockLevel   Float  @default(0)
   reorderLevel Float  @default(0)
-  unitCost     Float  @default(0)
+  unitCost         Float @default(0)
+  reservedQuantity Float @default(0) @map("reserved_quantity")
 
-  movements       StockMovement[]
-  menuIngredients MenuItemIngredient[]
+  movements        StockMovement[]
+  menuIngredients  MenuItemIngredient[]
+  reservationHolds StockReservationHold[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -232,8 +234,55 @@ model KopoPayment {
   posCart              Json?    @map("pos_cart")
   posCompleted         Boolean  @default(false) @map("pos_completed")
   posTransactionId     String?  @unique @map("pos_transaction_id")
+  reservationId        String?  @unique @map("reservation_id")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("kopo_payments")
+}
+
+// Ingredient hold for an order that is not yet paid or in production.
+// stockLevel stays unchanged until the reservation is committed.
+model StockReservation {
+  id            String    @id @default(cuid())
+  status        String    @default("active") // active | committed | released
+  expiresAt     DateTime  @map("expires_at")
+  customerRef   String?   @map("customer_ref")
+  paymentId     String?   @unique @map("payment_id")
+  releaseReason String?   @map("release_reason")
+  committedAt   DateTime? @map("committed_at")
+  releasedAt    DateTime? @map("released_at")
+
+  items StockReservationItem[]
+  holds StockReservationHold[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, expiresAt])
+  @@map("stock_reservations")
+}
+
+model StockReservationItem {
+  id            String           @id @default(cuid())
+  reservationId String           @map("reservation_id")
+  reservation   StockReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  menuItemId    String           @map("menu_item_id")
+  quantity      Float
+
+  @@index([reservationId])
+  @@map("stock_reservation_items")
+}
+
+model StockReservationHold {
+  id              String           @id @default(cuid())
+  reservationId   String           @map("reservation_id")
+  reservation     StockReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  inventoryItemId String           @map("inventory_item_id")
+  inventoryItem   InventoryItem    @relation(fields: [inventoryItemId], references: [id])
+  quantity        Float
+
+  @@index([reservationId])
+  @@index([inventoryItemId])
+  @@map("stock_reservation_holds")
 }

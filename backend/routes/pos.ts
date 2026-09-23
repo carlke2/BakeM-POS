@@ -4,6 +4,7 @@ import { ensureAuthenticated, canManageOps } from '@/middlewares/auth';
 import { logAuditEvent } from '@/services/audit';
 import { displayReceiptNo, generateReceiptNo } from '@/services/receipt';
 import { deductStockForOrder } from '@/services/inventoryDeduction';
+import { settleReservation } from '@/services/stockReservation';
 
 const router = Router();
 
@@ -96,6 +97,7 @@ export async function executeGuestSale(
   cashierId: string,
   items: CartLine[],
   paymentMethod: 'cash' | 'mpesa',
+  reservationId?: string,
 ) {
   if (paymentMethod !== 'cash' && paymentMethod !== 'mpesa') {
     throw new Error('INVALID_PAYMENT_METHOD');
@@ -124,7 +126,10 @@ export async function executeGuestSale(
       ),
     );
 
-    await deductStockForOrder(tx, orderLines, { userId: cashierId, receiptNo });
+    await deductStockForOrder(tx, orderLines, { userId: cashierId, receiptNo, reservationId });
+    if (reservationId) {
+      await settleReservation(tx, reservationId);
+    }
 
     const posTx = await tx.posTransaction.create({
       data: {
@@ -146,8 +151,9 @@ export async function executeGuestMpesaSale(
   cashierId: string,
   items: CartLine[],
   _mpesaReference: string,
+  reservationId?: string,
 ) {
-  return executeGuestSale(cashierId, items, 'mpesa');
+  return executeGuestSale(cashierId, items, 'mpesa', reservationId);
 }
 
 function respondSaleError(res: Response, error: unknown, logLabel: string) {

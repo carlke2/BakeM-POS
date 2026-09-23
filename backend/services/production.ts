@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 type OrderLine = { menuItemId: string; quantity: number; price?: number };
 
@@ -21,11 +21,24 @@ export async function recordProduction(
   if (menuItem.ingredients.length === 0) throw new Error('RECIPE_REQUIRED');
 
   const count = Math.max(1, Math.floor(Number(batchCount) || 1));
+  const inventoryIds = menuItem.ingredients.map((ing) => ing.inventoryItemId).sort();
+  await tx.$queryRaw(Prisma.sql`
+    SELECT id FROM inventory_items
+    WHERE id IN (${Prisma.join(inventoryIds)})
+    FOR UPDATE
+  `);
+  const locked = await tx.inventoryItem.findMany({
+    where: { id: { in: inventoryIds } },
+    select: { id: true, name: true, stockLevel: true, reservedQuantity: true },
+  });
+  const lockedById = new Map(locked.map((item) => [item.id, item]));
 
   for (const ing of menuItem.ingredients) {
     const needed = ing.quantity * count;
-    if (ing.inventoryItem.stockLevel < needed) {
-      throw new Error(`INSUFFICIENT_INGREDIENT:${ing.inventoryItem.name}`);
+    const current = lockedById.get(ing.inventoryItemId);
+    const available = (current?.stockLevel ?? 0) - (current?.reservedQuantity ?? 0);
+    if (available + 1e-8 < needed) {
+      throw new Error(`INSUFFICIENT_INGREDIENT:${current?.name || ing.inventoryItem.name}`);
     }
   }
 

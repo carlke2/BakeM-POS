@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { allocateSalesToBatches } from '@/services/production';
 
 type OrderLine = { menuItemId: string; quantity: number; price?: number };
@@ -6,6 +6,8 @@ type OrderLine = { menuItemId: string; quantity: number; price?: number };
 type DeductOptions = {
   userId: string;
   receiptNo: string;
+  /** When set, this reservation's holds are still available to the sale that is committing them. */
+  reservationId?: string;
 };
 
 function aggregateQuantities(lines: OrderLine[]): Map<string, number> {
@@ -32,6 +34,23 @@ export async function deductStockForOrder(
   });
   const menuById = new Map(menuItems.map((m) => [m.id, m]));
 
+  const batchIds = menuItems.filter((item) => item.batchYield).map((item) => item.id);
+  const reservedPortions = new Map<string, number>();
+  if (batchIds.length > 0) {
+    const rows = await tx.stockReservationItem.groupBy({
+      by: ['menuItemId'],
+      where: {
+        menuItemId: { in: batchIds },
+        reservation: {
+          status: 'active',
+          ...(opts.reservationId ? { NOT: { id: opts.reservationId } } : {}),
+        },
+      },
+      _sum: { quantity: true },
+    });
+    for (const row of rows) reservedPortions.set(row.menuItemId, row._sum.quantity ?? 0);
+  }
+
   const unavailableMenuIds: string[] = [];
   for (const [menuItemId, qty] of menuQtyById) {
     const menuItem = menuById.get(menuItemId);
@@ -40,14 +59,15 @@ export async function deductStockForOrder(
     const trackedStock = menuItem.batchYield ? (menuItem.stockLevel ?? 0) : menuItem.stockLevel;
     if (trackedStock === null) continue;
 
-    if (trackedStock < qty) {
+    const free = menuItem.batchYield ? trackedStock - (reservedPortions.get(menuItemId) || 0) : trackedStock;
+    if (free < qty) {
       throw new Error(
         menuItem.batchYield
           ? `INSUFFICIENT_STOCK:${menuItem.name} — cook a batch first`
           : `INSUFFICIENT_STOCK:${menuItem.name}`,
       );
     }
-    if (trackedStock - qty <= 0) {
+    if (free - qty <= 0) {
       unavailableMenuIds.push(menuItemId);
     }
   }
@@ -89,7 +109,7 @@ export async function deductStockForOrder(
 
   const recipes = await tx.menuItemIngredient.findMany({
     where: { menuItemId: { in: legacyMenuIds } },
-    include: { inventoryItem: { select: { id: true, name: true, stockLevel: true } } },
+    include: { inventoryItem: { select: { id: true, name: true, stockLevel: true, reservedQuantity: true } } },
   });
 
   if (recipes.length === 0) return;
@@ -120,17 +140,32 @@ export async function deductStockForOrder(
 
   if (ingredientTotals.size === 0) return;
 
-  const inventoryIds = [...ingredientTotals.keys()];
+  const ownHolds = new Map<string, number>();
+  if (opts.reservationId) {
+    const holds = await tx.stockReservationHold.findMany({
+      where: { reservationId: opts.reservationId },
+      select: { inventoryItemId: true, quantity: true },
+    });
+    for (const hold of holds) ownHolds.set(hold.inventoryItemId, hold.quantity);
+  }
+
+  const inventoryIds = [...ingredientTotals.keys()].sort();
+  await tx.$queryRaw(Prisma.sql`
+    SELECT id FROM inventory_items
+    WHERE id IN (${Prisma.join(inventoryIds)})
+    FOR UPDATE
+  `);
   const inventoryItems = await tx.inventoryItem.findMany({
     where: { id: { in: inventoryIds } },
-    select: { id: true, name: true, stockLevel: true },
+    select: { id: true, name: true, stockLevel: true, reservedQuantity: true },
   });
   const inventoryById = new Map(inventoryItems.map((i) => [i.id, i]));
 
   for (const [inventoryItemId, { qty, name }] of ingredientTotals) {
     const item = inventoryById.get(inventoryItemId);
     if (!item) continue;
-    if (item.stockLevel < qty) {
+    const free = item.stockLevel - item.reservedQuantity + (ownHolds.get(inventoryItemId) || 0);
+    if (free + 1e-8 < qty) {
       throw new Error(`INSUFFICIENT_INGREDIENT:${name}`);
     }
   }

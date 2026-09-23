@@ -44,7 +44,7 @@ export async function getKitchenBoard(): Promise<KitchenBoardDish[]> {
     include: {
       ingredients: {
         include: {
-          inventoryItem: { select: { id: true, name: true, unit: true, stockLevel: true } },
+          inventoryItem: { select: { id: true, name: true, unit: true, stockLevel: true, reservedQuantity: true } },
         },
       },
       productionBatches: {
@@ -58,14 +58,16 @@ export async function getKitchenBoard(): Promise<KitchenBoardDish[]> {
   return items.map((item) => {
     const batchYield = item.batchYield!;
     const ingredients = item.ingredients.map((ing) => {
+      const available = ing.inventoryItem.stockLevel - ing.inventoryItem.reservedQuantity;
       const batchesPossible =
-        ing.quantity > 0 ? Math.floor(ing.inventoryItem.stockLevel / ing.quantity) : 0;
+        ing.quantity > 0 ? Math.floor(Math.max(0, available) / ing.quantity) : 0;
       return {
         inventoryItemId: ing.inventoryItemId,
         name: ing.inventoryItem.name,
         unit: ing.inventoryItem.unit,
         quantityPerBatch: ing.quantity,
         stockLevel: ing.inventoryItem.stockLevel,
+        available,
         batchesPossible,
       };
     });

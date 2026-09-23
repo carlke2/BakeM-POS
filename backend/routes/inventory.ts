@@ -17,10 +17,13 @@ router.get('/items', ensureAuthenticated, async (req: Request, res: Response): P
   }
 
   try {
-    const items = await prisma.inventoryItem.findMany({
-      orderBy: { category: 'asc' },
-    });
-    return res.json(items);
+        const items = await prisma.inventoryItem.findMany({
+          orderBy: { category: 'asc' },
+        });
+        return res.json(items.map((item) => ({
+          ...item,
+          available: item.stockLevel - item.reservedQuantity,
+        })));
   } catch (error) {
     console.error('GET /inventory/items error:', error);
     return res.status(500).json({
