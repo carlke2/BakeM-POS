@@ -74,6 +74,9 @@ type PreparedLine = {
 
 const roundQty = (value: number) => Math.round(value * 10000) / 10000;
 
+/** Remote Postgres (session pooler) often needs longer than Prisma's 5s interactive default. */
+const txOptions = { maxWait: 15_000, timeout: 20_000 };
+
 const floorQty = (value: number) => Math.max(0, Math.floor(value * 10000 + 1e-8) / 10000);
 
 function parseLines(items: RequestedLine[]): RequestedLine[] {
@@ -305,7 +308,7 @@ export async function checkAvailability(
       ? await holdsForReservation(tx, options.excludeReservationId)
       : new Map<string, number>();
     return evaluateAvailability(prepared, poolFromLines(prepared, extra));
-  });
+  }, txOptions);
 }
 
 async function writeReservation(
@@ -377,7 +380,7 @@ export async function createReservation(input: {
   return prisma.$transaction(async (tx) => {
     const prepared = await prepareLines(tx, lines, scope);
     return writeReservation(tx, prepared, input);
-  });
+  }, txOptions);
 }
 
 async function loadActiveReservation(tx: Tx, id: string) {
@@ -416,7 +419,7 @@ export async function releaseReservation(id: string, reason: string) {
       },
       include: { items: true, holds: true },
     });
-  });
+  }, txOptions);
 }
 
 export async function releaseReservationForPayment(paymentId: string, reason: string) {
@@ -518,7 +521,7 @@ export async function commitReservation(id: string, userId: string) {
       data: { status: 'committed', committedAt: new Date() },
       include: { items: true, holds: true },
     });
-  });
+  }, txOptions);
 }
 
 export async function replaceReservationItems(id: string, items: RequestedLine[]) {
@@ -587,7 +590,7 @@ export async function replaceReservationItems(id: string, items: RequestedLine[]
       include: { items: true, holds: true },
     });
     return { reservation: updated, availability };
-  });
+  }, txOptions);
 }
 
 export async function releaseExpiredReservations() {
