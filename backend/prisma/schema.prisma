@@ -21,6 +21,7 @@ model User {
   password  String
 
   attendanceRecords StaffAttendance[]
+  deliveryOrders    ShopOrder[]       @relation("DeliveryAssignments")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -285,4 +286,78 @@ model StockReservationHold {
   @@index([reservationId])
   @@index([inventoryItemId])
   @@map("stock_reservation_holds")
+}
+
+// Shop customer. Separate from staff User (email/password). Login is phone + OTP.
+model Customer {
+  id     String      @id @default(cuid())
+  name   String
+  phone  String      @unique
+  orders ShopOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("customers")
+}
+
+// One-time login code. codeHash is never the raw digits.
+model PhoneOtp {
+  id        String    @id @default(cuid())
+  phone     String
+  codeHash  String    @map("code_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@map("phone_otps")
+}
+
+// Customer order. StockReservation covers the ingredient hold until payment.
+// This status continues through pickup or delivery after the reservation is committed.
+model ShopOrder {
+  id              String  @id @default(cuid())
+  customerId      String  @map("customer_id")
+  customer        Customer @relation(fields: [customerId], references: [id])
+  fulfillmentType String  @map("fulfillment_type") // pickup | delivery
+  // placed | confirmed | ready_for_pickup | picked_up | out_for_delivery | delivered | cancelled
+  status          String  @default("placed")
+  reservationId   String? @unique @map("reservation_id")
+  paymentId       String? @unique @map("payment_id")
+  deliveryUserId  String? @map("delivery_user_id")
+  deliveryUser    User?   @relation("DeliveryAssignments", fields: [deliveryUserId], references: [id])
+  receiptNo       String? @unique @map("receipt_no")
+
+  buildingName String? @map("building_name")
+  street       String?
+  area         String?
+  floor        String?
+  unit         String?
+  latitude     Float?
+  longitude    Float?
+
+  items ShopOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, createdAt])
+  @@index([deliveryUserId, status])
+  @@index([status, createdAt])
+  @@map("shop_orders")
+}
+
+model ShopOrderItem {
+  id         String    @id @default(cuid())
+  orderId    String    @map("order_id")
+  order      ShopOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String    @map("menu_item_id")
+  name       String
+  unitType   String    @map("unit_type")
+  quantity   Float
+  unitPrice  Float     @map("unit_price")
+
+  @@index([orderId])
+  @@map("shop_order_items")
 }
